@@ -6,9 +6,8 @@ FLUTTER_BIN="${FLUTTER_BIN:-/www/.toolchains/flutter/bin/flutter}"
 API_BASE="${HG_API_BASE:-https://d1716d.bmikbxhi.cc}"
 PORT="${WEB_PORT:-43125}"
 
-mkdir -p "$ROOT/.tmp/flutter" "$ROOT/.tmp/java"
-export TMPDIR="$ROOT/.tmp/flutter"
-export JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:+$JAVA_TOOL_OPTIONS }-Djava.io.tmpdir=$ROOT/.tmp/java"
+# shellcheck source=/dev/null
+source "$ROOT/tool/_project_tmp_env.sh"
 
 exec "$FLUTTER_BIN" run \
   -d web-server \

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../api/hg_api.dart';
+import '../api/hg_source_pool.dart';
 import '../app_metadata.dart';
 import '../auth/app_controllers.dart';
 import '../theme/hg_theme.dart';
@@ -763,6 +764,7 @@ class _SourceEditorSheetState extends State<HgSourceEditorSheet> {
   late final TextEditingController _controller;
   bool _adding = false;
   bool _refreshing = false;
+  bool _speedTesting = false;
   String? _message;
 
   @override
@@ -786,9 +788,8 @@ class _SourceEditorSheetState extends State<HgSourceEditorSheet> {
     });
     try {
       final sourceController = context.read<SourceController>();
-      final normalized = await sourceController.addSource(value);
+      await sourceController.addSource(value);
       if (!mounted) return;
-      context.read<HgApi>().setBaseUrl(normalized);
       _controller.clear();
       setState(() => _message = '已添加，点击地址即可切换');
     } on FormatException catch (error) {
@@ -808,7 +809,7 @@ class _SourceEditorSheetState extends State<HgSourceEditorSheet> {
     });
     try {
       final sourceController = context.read<SourceController>();
-      await sourceController.startAutoDiscovery();
+      await sourceController.startAutoDiscovery(force: true);
       if (!mounted) return;
       setState(() => _message = '已同步 ${sourceController.sources.length} 个数据源');
     } catch (error) {
@@ -823,9 +824,40 @@ class _SourceEditorSheetState extends State<HgSourceEditorSheet> {
     await sourceController.selectSource(value);
     if (!mounted) return;
     context.read<HgApi>().setBaseUrl(sourceController.baseUrl);
-    HgCoverRepository.instance.clear();
-    await context.read<HgApi>().clearContentCache();
     if (mounted) setState(() => _message = '已切换到 ${sourceController.baseUrl}');
+  }
+
+  Future<void> _speedTest() async {
+    if (_speedTesting) return;
+    setState(() {
+      _speedTesting = true;
+      _message = null;
+    });
+    try {
+      final sourceController = context.read<SourceController>();
+      await sourceController.probeSources();
+      if (!mounted) return;
+      setState(() {
+        _message = sourceController.needsManual
+            ? '暂未找到可用线路，请同步最新地址或手动添加'
+            : '测速完成，已选择 ${sourceController.baseUrl}';
+      });
+    } catch (error) {
+      if (mounted) setState(() => _message = cleanError(error));
+    } finally {
+      if (mounted) setState(() => _speedTesting = false);
+    }
+  }
+
+  String _checkedLabel(DateTime? value) {
+    if (value == null) return '尚未检测';
+    final now = DateTime.now();
+    if (now.year == value.year &&
+        now.month == value.month &&
+        now.day == value.day) {
+      return '${TimeOfDay.fromDateTime(value).format(context)} 检测';
+    }
+    return '${value.month}月${value.day}日检测';
   }
 
   Future<void> _remove(String value) async {
@@ -841,6 +873,20 @@ class _SourceEditorSheetState extends State<HgSourceEditorSheet> {
     final source = context.watch<SourceController>();
     final theme = Theme.of(context);
     final inset = MediaQuery.viewInsetsOf(context).bottom;
+    HgSourceHealth? activeHealth;
+    for (final item in source.sourceHealth) {
+      if (item.baseUrl == source.baseUrl) {
+        activeHealth = item;
+        break;
+      }
+    }
+    final activeStatus = activeHealth == null
+        ? '等待检测'
+        : [
+            activeHealth.statusLabel,
+            if (activeHealth.latencyMs != null) '${activeHealth.latencyMs} ms',
+            _checkedLabel(activeHealth.lastCheckedAt),
+          ].join(' · ');
     return Padding(
       padding: EdgeInsets.only(bottom: inset),
       child: Container(
@@ -887,38 +933,149 @@ class _SourceEditorSheetState extends State<HgSourceEditorSheet> {
                 ),
               ),
               const SizedBox(height: 15),
-              OutlinedButton.icon(
-                onPressed: _refreshing ? null : _refresh,
-                icon: _refreshing
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.sync_rounded, size: 18),
-                label: Text(_refreshing ? '正在同步…' : '自动获取最新地址'),
+              Material(
+                color: context.hgSurfaceMuted,
+                borderRadius: BorderRadius.circular(13),
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(13, 12, 13, 8),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Padding(
+                            padding: EdgeInsets.only(top: 2),
+                            child: Icon(Icons.bolt_rounded, size: 19),
+                          ),
+                          const SizedBox(width: 9),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '当前最佳线路',
+                                  style: TextStyle(
+                                    color: context.hgOnSurface,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  source.baseUrl,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: context.hgOnSurface,
+                                    fontSize: 11.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  activeStatus,
+                                  style: TextStyle(
+                                    color:
+                                        activeHealth?.consecutiveFailures !=
+                                                null &&
+                                            activeHealth!.consecutiveFailures >
+                                                0
+                                        ? const Color(0xFFC64F45)
+                                        : context.hgMuted,
+                                    fontSize: 10.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Divider(
+                      height: 1,
+                      indent: 13,
+                      endIndent: 13,
+                      color: theme.colorScheme.outlineVariant.withValues(
+                        alpha: 0.5,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(13, 3, 8, 3),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '自动选择最佳线路',
+                              style: TextStyle(
+                                color: context.hgOnSurface,
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          Switch.adaptive(
+                            value: source.automaticSelection,
+                            onChanged: (value) =>
+                                source.setAutomaticSelection(value),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _speedTesting ? null : _speedTest,
+                      icon: _speedTesting
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.speed_rounded, size: 18),
+                      label: Text(_speedTesting ? '测速中…' : '立即测速'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _refreshing ? null : _refresh,
+                      icon: _refreshing
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.sync_rounded, size: 18),
+                      label: Text(_refreshing ? '同步中…' : '同步地址'),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
-              ...source.sources.map(
+              ...source.sourceHealth.map(
                 (item) => Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Material(
-                    color: item == source.baseUrl
+                    color: item.baseUrl == source.baseUrl
                         ? context.hgSurfaceHigh
                         : context.hgSurfaceMuted,
                     borderRadius: BorderRadius.circular(13),
                     child: HgInkWell(
-                      onTap: () => _select(item),
+                      onTap: () => _select(item.baseUrl),
                       borderRadius: BorderRadius.circular(13),
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(13, 11, 8, 11),
                         child: Row(
                           children: [
                             Icon(
-                              item == source.baseUrl
+                              item.baseUrl == source.baseUrl
                                   ? Icons.radio_button_checked_rounded
                                   : Icons.radio_button_off_rounded,
-                              color: item == source.baseUrl
+                              color: item.baseUrl == source.baseUrl
                                   ? HgColors.orange
                                   : const Color(0xFF9A9A9E),
                               size: 19,
@@ -926,28 +1083,44 @@ class _SourceEditorSheetState extends State<HgSourceEditorSheet> {
                             const SizedBox(width: 9),
                             Expanded(
                               child: Text(
-                                item,
+                                item.baseUrl,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   color: context.hgOnSurface,
                                   fontSize: 12,
-                                  fontWeight: item == source.baseUrl
+                                  fontWeight: item.baseUrl == source.baseUrl
                                       ? FontWeight.w700
                                       : FontWeight.w500,
                                 ),
                               ),
                             ),
-                            IconButton(
-                              onPressed: source.sources.length <= 1
-                                  ? null
-                                  : () => _remove(item),
-                              icon: const Icon(
-                                Icons.close_rounded,
-                                size: 17,
-                                color: Color(0xFF9A9A9E),
-                              ),
-                              visualDensity: VisualDensity.compact,
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  item.latencyMs == null
+                                      ? item.statusLabel
+                                      : '${item.statusLabel} · ${item.latencyMs} ms',
+                                  style: TextStyle(
+                                    color: item.consecutiveFailures > 0
+                                        ? const Color(0xFFC64F45)
+                                        : context.hgMuted,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                                IconButton(
+                                  onPressed: source.sources.length <= 1
+                                      ? null
+                                      : () => _remove(item.baseUrl),
+                                  icon: const Icon(
+                                    Icons.close_rounded,
+                                    size: 17,
+                                    color: Color(0xFF9A9A9E),
+                                  ),
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                              ],
                             ),
                           ],
                         ),

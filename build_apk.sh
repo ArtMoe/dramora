@@ -1,6 +1,5 @@
-#!/bin/sh
+#!/usr/bin/env bash
+set -euo pipefail
 
-set -eu
-
-flutter build apk --release --split-per-abi
-printf '\nAPK output: build/app/outputs/flutter-apk/\n'
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+exec "$ROOT/tool/build_apk.sh"

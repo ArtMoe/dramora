@@ -301,10 +301,43 @@ void main() {
       );
     });
 
+    test('accepts known discovery domains and rejects unsafe hosts', () {
+      expect(
+        normalizeHgDiscoveredSource('https://2a52.bmikbxhi.cc/some/path'),
+        'https://2a52.bmikbxhi.cc',
+      );
+      expect(
+        normalizeHgDiscoveredSource('https://future-source.example'),
+        isNull,
+      );
+      expect(
+        normalizeHgDiscoveredSource(
+          'https://future-source.example/path',
+          trustedManifest: true,
+        ),
+        'https://future-source.example',
+      );
+      expect(
+        normalizeHgDiscoveredSource(
+          'http://127.0.0.1:8080',
+          trustedManifest: true,
+        ),
+        isNull,
+      );
+      expect(normalizeHgDiscoveredSource('https://huangguoai.ai'), isNull);
+    });
+
     test('persists a custom source and can reset to the default', () async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
-      final controller = SourceController(prefs);
+      final controller = SourceController(
+        prefs,
+        probeSource: (source) async => HgSourceProbeResult(
+          baseUrl: source,
+          available: true,
+          latency: const Duration(milliseconds: 32),
+        ),
+      );
 
       expect(controller.baseUrl, kHgBootstrapBaseUrl);
       await controller.setBaseUrl('example.com');
@@ -319,7 +352,14 @@ void main() {
     test('persists multiple sources and the active source', () async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
-      final controller = SourceController(prefs);
+      final controller = SourceController(
+        prefs,
+        probeSource: (source) async => HgSourceProbeResult(
+          baseUrl: source,
+          available: true,
+          latency: const Duration(milliseconds: 28),
+        ),
+      );
 
       await controller.addSource('https://example.org');
       await controller.selectSource('https://example.org');

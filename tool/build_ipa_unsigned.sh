@@ -15,6 +15,9 @@ APP_COPY="$PAYLOAD_DIR/Runner.app"
 VERSION="$(sed -n 's/^version:[[:space:]]*//p' "$ROOT/pubspec.yaml" | cut -d+ -f1)"
 IPA_NAME="Guomu-${VERSION}-unsigned.ipa"
 
+# shellcheck source=/dev/null
+source "$ROOT/tool/_project_tmp_env.sh"
+
 if ! command -v "$FLUTTER_BIN" >/dev/null 2>&1; then
   echo "找不到 Flutter：$FLUTTER_BIN" >&2
   exit 1

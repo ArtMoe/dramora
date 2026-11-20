@@ -1,16 +1,39 @@
 abstract final class HgAppMetadata {
-  static const String version = '1.4.6';
-  static const String buildNumber = '11';
-  static const String versionLabel = 'v1.4.6 (11)';
-  static const String releaseTitle = '原生手感与主题一致性版';
+  static const String version = '1.4.7';
+  static const String buildNumber = '12';
+  static const String versionLabel = 'v1.4.7 (12)';
+  static const String releaseTitle = '多源测速与启动稳定性版';
   static const List<String> releaseNotes = [
-    '列表与按钮增加轻微按压叠色反馈，去掉水波纹。',
-    'Android 预测性返回与系统转场；iOS 列表回弹与 Android 边缘指示恢复合理默认值。',
-    'Tab 与操作图标切换仅淡入，去掉弹簧缩放。',
-    '骨架加载色跟随深浅主题；半屏输入随键盘即时抬升。',
+    '数据源支持后台并行测速、健康评分和自动选择最佳线路。',
+    '只读请求失败会自动切换备用源；写操作固定单源，避免重复点赞或提交。',
+    '缓存升级为版本化结构，兼容旧缓存，切换数据源不再清空内容缓存。',
+    '启动预加载首页、榜单、专题、标签和搜索热词；项目构建临时文件统一进入 .tmp。',
   ];
 
   static const List<HgReleaseRecord> releaseHistory = [
+    HgReleaseRecord(
+      version: 'v1.4.7',
+      buildNumber: '12',
+      date: '2026-11-20',
+      title: '多源测速与启动稳定性版',
+      features: [
+        '数据源池记录延迟、成功率、连续失败、最近成功时间和冷却状态，并按健康评分选择线路。',
+        '启动时后台并行测速，应用回到前台时轻量复核；设置页显示当前线路状态、延迟和最近检测时间，支持立即测速。',
+        '首页、搜索、分类、标签、专题、榜单和评论等只读请求失败时自动回退到下一健康源。',
+        '登录、点赞、收藏、评论和资料修改固定在当前源执行，不自动重复发送有副作用的请求。',
+      ],
+      improvements: [
+        '缓存升级为 v2 结构并兼容 v1，缓存键按接口语义和参数复用，切换源不清空已有内容。',
+        '首页、最近上新、热播、专题、标签、分类、榜单和搜索热词在启动阶段按有界并发预热。',
+        '数据源发现继续使用本机网络，支持 GitHub 清单、官方发布页和已知域名白名单，手动添加地址会先验证真实接口。',
+        '本地构建脚本的 TMPDIR、PUB_CACHE、XDG_CACHE_HOME、Gradle 和 Java 临时目录统一指向项目 .tmp。',
+      ],
+      fixes: [
+        '修复切换数据源后内容缓存被清空、页面需要重新抓取的问题。',
+        '修复请求失败后仍继续使用同一异常源、备用源无法及时接管的问题。',
+        '修复部分构建和下载操作把临时文件写入系统临时目录的问题。',
+      ],
+    ),
     HgReleaseRecord(
       version: 'v1.4.6',
       buildNumber: '11',
