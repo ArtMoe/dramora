@@ -167,8 +167,6 @@ flutter test
 flutter run
 ```
 
-构建脚本会自动将 Flutter、Pub、Gradle、Java 的临时文件放入项目 `.tmp/`，不会写入系统 `/tmp` 或根盘临时目录。
-
 切换启动数据源：
 
 ```bash

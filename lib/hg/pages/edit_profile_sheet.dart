@@ -116,20 +116,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Expanded(child: SizedBox()),
-                      IconButton(
-                        onPressed: () => Navigator.maybePop(context),
-                        icon: Icon(
-                          Icons.close_rounded,
-                          color: context.hgMuted,
-                          size: 22,
-                        ),
-                      ),
-                    ],
-                  ),
+                  const SizedBox(height: 20),
                   Text(
                     '编辑资料',
                     style: TextStyle(

@@ -88,21 +88,7 @@ class _LoginSheetState extends State<LoginSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Expanded(child: SizedBox()),
-                      IconButton(
-                        onPressed: () => Navigator.maybePop(context),
-                        icon: Icon(
-                          Icons.close_rounded,
-                          color: context.hgMuted,
-                          size: 22,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 20),
                   Text(
                     _register ? '创建黄果账号' : '登录黄果',
                     style: TextStyle(

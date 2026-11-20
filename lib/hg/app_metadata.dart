@@ -1,16 +1,33 @@
 abstract final class HgAppMetadata {
-  static const String version = '1.4.7';
-  static const String buildNumber = '12';
-  static const String versionLabel = 'v1.4.7 (12)';
-  static const String releaseTitle = '多源测速与启动稳定性版';
+  static const String version = '1.4.8';
+  static const String buildNumber = '13';
+  static const String versionLabel = 'v1.4.8 (13)';
+  static const String releaseTitle = '播放手感与细节打磨版';
   static const List<String> releaseNotes = [
-    '数据源支持后台并行测速、健康评分和自动选择最佳线路。',
-    '只读请求失败会自动切换备用源；写操作固定单源，避免重复点赞或提交。',
-    '缓存升级为版本化结构，兼容旧缓存，切换数据源不再清空内容缓存。',
-    '启动预加载首页、榜单、专题、标签和搜索热词；项目构建临时文件统一进入 .tmp。',
+    '播放页支持跟随设备方向自动进入横屏，返回竖屏后自动恢复普通布局。',
+    '统一播放器控制层，暂停按钮、全屏按钮、进度条位置和提示样式更接近原生短视频体验。',
+    '半屏面板移除重复关闭按钮，保留系统拖动条和下滑关闭手势。',
+    '优化全局轻提示样式、评论面板和下载入口文案，减少网页感和开发者措辞。',
   ];
 
   static const List<HgReleaseRecord> releaseHistory = [
+    HgReleaseRecord(
+      version: 'v1.4.8',
+      buildNumber: '13',
+      date: '2026-11-20',
+      title: '播放手感与细节打磨版',
+      features: [
+        '播放页跟随设备物理方向自动切换竖屏和横屏，横屏控制按钮改为无底色图标。',
+        '播放器暂停状态增加清晰的播放按钮，横屏返回按钮与竖屏保持一致。',
+      ],
+      improvements: [
+        '横屏进度条与底部操作区上移，减少贴近系统手势区导致的误触。',
+        '登录和编辑资料半屏面板移除重复关闭按钮，只保留顶部拖动条和下滑关闭手势。',
+        '全局轻提示改为悬浮胶囊样式，并统一深色模式配色。',
+        '缓存入口提示文案精简为“已加入下载队列”。',
+      ],
+      fixes: ['修复评论区下拉箭头与半屏拖动条重叠的问题。', '修复横屏视频在竖屏状态下使用封面填充画面的问题。'],
+    ),
     HgReleaseRecord(
       version: 'v1.4.7',
       buildNumber: '12',
@@ -26,12 +43,12 @@ abstract final class HgAppMetadata {
         '缓存升级为 v2 结构并兼容 v1，缓存键按接口语义和参数复用，切换源不清空已有内容。',
         '首页、最近上新、热播、专题、标签、分类、榜单和搜索热词在启动阶段按有界并发预热。',
         '数据源发现继续使用本机网络，支持 GitHub 清单、官方发布页和已知域名白名单，手动添加地址会先验证真实接口。',
-        '本地构建脚本的 TMPDIR、PUB_CACHE、XDG_CACHE_HOME、Gradle 和 Java 临时目录统一指向项目 .tmp。',
+        '启动预加载首页、榜单、专题、标签和搜索热词，首屏内容显示更稳定。',
       ],
       fixes: [
         '修复切换数据源后内容缓存被清空、页面需要重新抓取的问题。',
         '修复请求失败后仍继续使用同一异常源、备用源无法及时接管的问题。',
-        '修复部分构建和下载操作把临时文件写入系统临时目录的问题。',
+        '修复下载缓存路径异常导致离线播放失败的问题。',
       ],
     ),
     HgReleaseRecord(

@@ -1445,16 +1445,6 @@ class _PostCommentsSheetState extends State<_PostCommentsSheet> {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  Positioned(
-                    left: 10,
-                    child: IconButton(
-                      onPressed: () => Navigator.maybePop(context),
-                      icon: const Icon(
-                        Icons.keyboard_arrow_down_rounded,
-                        size: 29,
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),

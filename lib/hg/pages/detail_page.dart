@@ -219,7 +219,7 @@ class _DramaDetailPageState extends State<DramaDetailPage> {
     final manager = context.read<HgDownloadManager>();
     await manager.startDramaDownload(detail);
     if (mounted) {
-      showHgSnack(context, '已加入缓存队列，可在“设置 → 我的下载”查看进度');
+      showHgSnack(context, '已加入下载队列');
     }
   }
 

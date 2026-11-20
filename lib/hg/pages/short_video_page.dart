@@ -61,7 +61,6 @@ class _ShortVideoPageState extends State<ShortVideoPage>
   bool _loading = true;
   bool _loadingNextDrama = false;
   bool _chromeVisible = true;
-  final ValueNotifier<bool> _pageScrolling = ValueNotifier(false);
   bool _speedLocked = false;
   double _playbackSpeed = 1;
   bool get _previewOnly => kIsWeb && kHgWebPreviewOnly;
@@ -83,7 +82,7 @@ class _ShortVideoPageState extends State<ShortVideoPage>
         ? 0
         : widget.startIndex.clamp(0, widget.videoIds.length - 1);
     _lastLoadedDramaIndex = _startDramaIndex;
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    if (!_previewOnly) unawaited(HgPlayerDisplay.enterAutoRotate());
     unawaited(_initialize());
   }
 
@@ -92,10 +91,9 @@ class _ShortVideoPageState extends State<ShortVideoPage>
     WidgetsBinding.instance.removeObserver(this);
     unawaited(_saveCurrentProgress());
     _pageController.dispose();
-    _pageScrolling.dispose();
     unawaited(HgLiveActivityService.end());
     unawaited(HgNowPlayingService.clear());
-    unawaited(HgPlayerDisplay.reset());
+    if (!_previewOnly) unawaited(HgPlayerDisplay.reset());
     super.dispose();
   }
 
@@ -337,10 +335,6 @@ class _ShortVideoPageState extends State<ShortVideoPage>
     );
   }
 
-  void _setPageScrolling(bool value) {
-    _pageScrolling.value = value;
-  }
-
   Future<void> _playNext() async {
     if (_currentPage < _entries.length - 1) {
       await _pageController.nextPage(
@@ -402,7 +396,10 @@ class _ShortVideoPageState extends State<ShortVideoPage>
         backgroundColor: Colors.black,
         body: LayoutBuilder(
           builder: (context, constraints) {
-            final desktop = constraints.maxWidth >= 900;
+            final landscape =
+                MediaQuery.orientationOf(context) == Orientation.landscape;
+            final desktop = kIsWeb && constraints.maxWidth >= 900;
+            final landscapeControls = landscape && !desktop && current != null;
             final stage = Stack(
               fit: StackFit.expand,
               children: [
@@ -444,118 +441,92 @@ class _ShortVideoPageState extends State<ShortVideoPage>
                     title: '没有可播放的短剧',
                   )
                 else
-                  NotificationListener<ScrollNotification>(
-                    onNotification: (notification) {
-                      if (notification is ScrollStartNotification) {
-                        _setPageScrolling(true);
-                      } else if (notification is ScrollEndNotification) {
-                        _setPageScrolling(false);
-                      }
-                      return false;
-                    },
-                    child: PageView.builder(
-                      controller: _pageController,
-                      scrollDirection: Axis.vertical,
-                      physics: const PageScrollPhysics(
-                        parent: ClampingScrollPhysics(),
-                      ),
-                      allowImplicitScrolling: true,
-                      itemCount: _entries.length,
-                      onPageChanged: _onPageChanged,
-                      itemBuilder: (context, index) {
-                        final entry = _entries[index];
-                        return _EpisodePlayer(
-                          key: ValueKey(
-                            '${entry.detail.id}-${entry.episode.number}',
-                          ),
-                          detail: entry.detail,
-                          episode: entry.episode,
-                          resumePositionMs: entry.resumePositionMs,
-                          active: index == _currentPage,
-                          scrolling: _pageScrolling,
-                          prepare: (index - _currentPage).abs() <= 4,
-                          chromeVisible: _chromeVisible,
-                          speedLocked: _speedLocked,
-                          playbackSpeed: _playbackSpeed,
-                          onCycleSpeed: _cycleSpeed,
-                          onToggleChrome: _toggleChrome,
-                          onCleanScreen: _cleanScreen,
-                          onOpenEpisodes: _openEpisodesSheet,
-                          onSpeedLockChanged: (value) {
-                            if (mounted) setState(() => _speedLocked = value);
-                          },
-                          onProgress: _handleProgress,
-                          onEnded: _playNext,
-                        );
-                      },
+                  PageView.builder(
+                    controller: _pageController,
+                    scrollDirection: Axis.vertical,
+                    physics: const PageScrollPhysics(
+                      parent: ClampingScrollPhysics(),
                     ),
+                    allowImplicitScrolling: true,
+                    itemCount: _entries.length,
+                    onPageChanged: _onPageChanged,
+                    itemBuilder: (context, index) {
+                      final entry = _entries[index];
+                      return _EpisodePlayer(
+                        key: ValueKey(
+                          '${entry.detail.id}-${entry.episode.number}',
+                        ),
+                        detail: entry.detail,
+                        episode: entry.episode,
+                        resumePositionMs: entry.resumePositionMs,
+                        active: index == _currentPage,
+                        landscape: landscapeControls,
+                        prepare: (index - _currentPage).abs() <= 4,
+                        chromeVisible: _chromeVisible,
+                        speedLocked: _speedLocked,
+                        playbackSpeed: _playbackSpeed,
+                        onCycleSpeed: _cycleSpeed,
+                        onToggleChrome: _toggleChrome,
+                        onOpenEpisodes: _openEpisodesSheet,
+                        onSpeedLockChanged: (value) {
+                          if (mounted) setState(() => _speedLocked = value);
+                        },
+                        onProgress: _handleProgress,
+                        onEnded: _playNext,
+                      );
+                    },
                   ),
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  child: AnimatedOpacity(
-                    opacity: _chromeVisible ? 1 : 0,
-                    duration: const Duration(milliseconds: 220),
-                    curve: Curves.easeOutCubic,
-                    child: IgnorePointer(
-                      ignoring: !_chromeVisible,
-                      child: SafeArea(
-                        bottom: false,
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                          child: Row(
-                            children: [
-                              _VideoCircleButton(
-                                icon: Icons.arrow_back_ios_new_rounded,
-                                onTap: () => Navigator.of(context).maybePop(),
-                              ),
-                              const SizedBox(width: 13),
-                              Expanded(
-                                child: Text(
-                                  current == null
-                                      ? widget.title
-                                      : '第 ${current.episode.number} 集',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 17,
-                                    fontWeight: FontWeight.w700,
+                if (!landscapeControls)
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: AnimatedOpacity(
+                      opacity: _chromeVisible ? 1 : 0,
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOutCubic,
+                      child: IgnorePointer(
+                        ignoring: !_chromeVisible,
+                        child: SafeArea(
+                          bottom: false,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                            child: Row(
+                              children: [
+                                _VideoCircleButton(
+                                  icon: Icons.arrow_back_ios_new_rounded,
+                                  onTap: () => Navigator.of(context).maybePop(),
+                                ),
+                                const SizedBox(width: 13),
+                                Expanded(
+                                  child: Text(
+                                    current == null
+                                        ? widget.title
+                                        : '第 ${current.episode.number} 集',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.w700,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              GestureDetector(
-                                onTap: _cycleSpeed,
-                                behavior: HitTestBehavior.opaque,
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 8,
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.schedule_rounded,
-                                        color: Colors.white,
-                                        size: 18,
-                                        shadows: [
-                                          Shadow(
-                                            color: Colors.black54,
-                                            blurRadius: 9,
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(width: 5),
-                                      Text(
-                                        _speedLabel(
-                                          _speedLocked ? 2 : _playbackSpeed,
-                                        ),
-                                        style: const TextStyle(
+                                const SizedBox(width: 8),
+                                GestureDetector(
+                                  onTap: _cycleSpeed,
+                                  behavior: HitTestBehavior.opaque,
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 8,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.schedule_rounded,
                                           color: Colors.white,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
+                                          size: 18,
                                           shadows: [
                                             Shadow(
                                               color: Colors.black54,
@@ -563,23 +534,39 @@ class _ShortVideoPageState extends State<ShortVideoPage>
                                             ),
                                           ],
                                         ),
-                                      ),
-                                    ],
+                                        const SizedBox(width: 5),
+                                        Text(
+                                          _speedLabel(
+                                            _speedLocked ? 2 : _playbackSpeed,
+                                          ),
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            shadows: [
+                                              Shadow(
+                                                color: Colors.black54,
+                                                blurRadius: 9,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              _VideoCircleButton(
-                                icon: Icons.visibility_off_outlined,
-                                onTap: _cleanScreen,
-                              ),
-                            ],
+                                const SizedBox(width: 8),
+                                _VideoCircleButton(
+                                  icon: Icons.visibility_off_outlined,
+                                  onTap: _cleanScreen,
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
               ],
             );
             if (!desktop) return stage;
@@ -626,14 +613,13 @@ class _EpisodePlayer extends StatefulWidget {
     required this.episode,
     required this.resumePositionMs,
     required this.active,
-    required this.scrolling,
+    required this.landscape,
     required this.prepare,
     required this.chromeVisible,
     required this.speedLocked,
     required this.playbackSpeed,
     required this.onCycleSpeed,
     required this.onToggleChrome,
-    required this.onCleanScreen,
     required this.onOpenEpisodes,
     required this.onSpeedLockChanged,
     required this.onProgress,
@@ -644,14 +630,13 @@ class _EpisodePlayer extends StatefulWidget {
   final HgEpisode episode;
   final int resumePositionMs;
   final bool active;
-  final ValueListenable<bool> scrolling;
+  final bool landscape;
   final bool prepare;
   final bool chromeVisible;
   final bool speedLocked;
   final double playbackSpeed;
   final VoidCallback onCycleSpeed;
   final VoidCallback onToggleChrome;
-  final VoidCallback onCleanScreen;
   final VoidCallback onOpenEpisodes;
   final ValueChanged<bool> onSpeedLockChanged;
   final void Function(Duration position, Duration duration) onProgress;
@@ -666,20 +651,19 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
   bool _loading = true;
   bool _initializing = false;
   bool _speedBoosting = false;
-  bool _speedUnlockedInGesture = false;
+  bool? _speedLockInGesture;
   String? _error;
   DateTime? _lastProgressAt;
   DateTime? _lastLiveActivityAt;
   DateTime? _lastNowPlayingAt;
   bool _scrubbing = false;
-  bool _resumeAfterScrub = false;
+  bool _seeking = false;
   Duration _scrubPosition = Duration.zero;
 
   @override
   void initState() {
     super.initState();
     _loading = widget.prepare;
-    widget.scrolling.addListener(_handleScrollingChanged);
     if (widget.active) unawaited(_initializeNowPlaying());
     if (widget.prepare) unawaited(_initializeWhenReady());
   }
@@ -690,10 +674,6 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
     if ((!oldWidget.prepare && widget.prepare) ||
         (!oldWidget.active && widget.active)) {
       unawaited(_initializeWhenReady());
-    }
-    if (oldWidget.scrolling != widget.scrolling) {
-      oldWidget.scrolling.removeListener(_handleScrollingChanged);
-      widget.scrolling.addListener(_handleScrollingChanged);
     }
     if (oldWidget.speedLocked != widget.speedLocked ||
         oldWidget.playbackSpeed != widget.playbackSpeed) {
@@ -710,8 +690,6 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
   }
 
   bool get _showVideo => widget.active;
-
-  void _handleScrollingChanged() => _syncPlaybackState();
 
   Future<void> _initializeNowPlaying() async {
     await HgNowPlayingService.initialize(
@@ -779,7 +757,7 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
   }
 
   void _emitProgress({bool force = false}) {
-    if (!widget.active || _scrubbing) return;
+    if (!widget.active || _scrubbing || _seeking) return;
     final controller = _controller;
     if (controller == null || !controller.isReady) return;
     final duration = controller.duration;
@@ -948,7 +926,6 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
 
   @override
   void dispose() {
-    widget.scrolling.removeListener(_handleScrollingChanged);
     final controller = _controller;
     if (controller != null) {
       _emitProgress(force: true);
@@ -989,10 +966,12 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
 
   void _startScrubbing(double fraction) {
     final controller = _controller;
-    if (controller == null || controller.duration <= Duration.zero) return;
+    if (_seeking ||
+        controller == null ||
+        controller.duration <= Duration.zero) {
+      return;
+    }
     HapticFeedback.selectionClick();
-    _resumeAfterScrub = controller.isPlaying;
-    if (controller.isPlaying) unawaited(controller.pause());
     setState(() {
       _scrubbing = true;
       _scrubPosition = _positionForFraction(fraction);
@@ -1006,63 +985,63 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
 
   void _finishScrubbing(double fraction) {
     final controller = _controller;
-    if (controller == null) return;
+    if (controller == null || !_scrubbing) return;
     final target = _positionForFraction(fraction);
-    final shouldResume = _resumeAfterScrub;
     setState(() {
       _scrubbing = false;
+      _seeking = true;
       _scrubPosition = target;
     });
-    widget.onProgress(target, controller.duration);
-    HapticFeedback.selectionClick();
-    unawaited(() async {
-      await controller.seekTo(target);
-      if (shouldResume) await controller.play();
-      _emitProgress(force: true);
-    }());
+    unawaited(_commitSeek(controller, target));
   }
 
-  void _seekFromTap(double fraction) {
-    final controller = _controller;
-    if (controller == null) return;
-    final target = _positionForFraction(fraction);
-    setState(() => _scrubPosition = target);
-    widget.onProgress(target, controller.duration);
-    HapticFeedback.selectionClick();
-    unawaited(
-      controller.seekTo(target).then((_) => _emitProgress(force: true)),
-    );
+  Future<void> _commitSeek(
+    HgVideoController controller,
+    Duration target,
+  ) async {
+    try {
+      await controller.seekTo(target);
+    } catch (_) {
+      if (mounted && widget.active) showHgSnack(context, '暂时无法跳转，请重试');
+    } finally {
+      if (mounted) {
+        setState(() => _seeking = false);
+        _emitProgress(force: true);
+      }
+    }
   }
 
   Future<void> _startBoost(LongPressStartDetails details) async {
     final width = context.size?.width ?? MediaQuery.sizeOf(context).width;
     final x = details.localPosition.dx;
     final onSide = x < width * 0.3 || x > width * 0.7;
-    if (!onSide) return;
+    if (!onSide || _controller?.isPlaying != true) return;
     setState(() {
       _speedBoosting = true;
-      _speedUnlockedInGesture = false;
+      _speedLockInGesture = null;
     });
     await _controller?.setPlaybackSpeed(2);
   }
 
   void _moveBoost(LongPressMoveUpdateDetails details) {
-    if (!_speedBoosting) return;
+    if (!_speedBoosting || _speedLockInGesture != null) return;
     if (!widget.speedLocked && details.offsetFromOrigin.dy < -46) {
       HapticFeedback.mediumImpact();
+      setState(() => _speedLockInGesture = true);
       widget.onSpeedLockChanged(true);
       return;
     }
     if (widget.speedLocked && details.offsetFromOrigin.dy > 46) {
       HapticFeedback.mediumImpact();
-      setState(() => _speedUnlockedInGesture = true);
+      setState(() => _speedLockInGesture = false);
       widget.onSpeedLockChanged(false);
       unawaited(_controller?.setPlaybackSpeed(widget.playbackSpeed));
     }
   }
 
   Future<void> _endBoost() async {
-    if (!widget.speedLocked || _speedUnlockedInGesture) {
+    if (!_speedBoosting) return;
+    if (!(_speedLockInGesture ?? widget.speedLocked)) {
       await _controller?.setPlaybackSpeed(widget.playbackSpeed);
     }
     if (mounted) setState(() => _speedBoosting = false);
@@ -1196,7 +1175,7 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
             Positioned(
               left: 12,
               right: 12,
-              bottom: 12 + bottom,
+              bottom: 28 + bottom,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -1213,10 +1192,9 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
                         onScrubStart: _startScrubbing,
                         onScrubUpdate: _updateScrubbing,
                         onScrubEnd: _finishScrubbing,
-                        onTapSeek: _seekFromTap,
                       ),
                     ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 14),
                   Row(
                     children: [
                       _LandscapeAction(
@@ -1266,18 +1244,9 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
                         ),
                       ),
                       const SizedBox(width: 16),
-                      GestureDetector(
-                        behavior: HitTestBehavior.opaque,
+                      _VideoCircleButton(
+                        icon: Icons.fullscreen_exit_rounded,
                         onTap: () => unawaited(HgPlayerDisplay.reset()),
-                        child: const SizedBox(
-                          width: 44,
-                          height: 44,
-                          child: Icon(
-                            Icons.fullscreen_exit_rounded,
-                            color: Colors.white,
-                            size: 24,
-                          ),
-                        ),
                       ),
                     ],
                   ),
@@ -1296,48 +1265,32 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
     final liked = auth.isLiked(widget.detail.id, widget.episode.number);
     final favorite = auth.isFavorite(widget.detail.id);
     final chromeOpacity = widget.chromeVisible ? 1.0 : 0.0;
-    final isLandscape =
-        MediaQuery.orientationOf(context) == Orientation.landscape;
+    final isLandscape = widget.landscape;
     final isWideVideo = (_controller?.aspectRatio ?? 0) > 1.2;
     return RepaintBoundary(
       child: Stack(
         fit: StackFit.expand,
         children: [
-          ValueListenableBuilder<bool>(
-            valueListenable: widget.scrolling,
-            builder: (context, scrolling, child) {
-              final showVideo = widget.active;
-              return Stack(
-                fit: StackFit.expand,
-                children: [
-                  if (_controller == null || !widget.active || !isWideVideo)
-                    HgCoverImage(
-                      url: widget.detail.cover,
-                      title: widget.detail.title,
-                    )
-                  else
-                    const ColoredBox(color: Colors.black),
-                  if (_controller != null && showVideo)
-                    _controller!.buildView(),
-                ],
-              );
-            },
-          ),
-          const DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color(0x36000000),
-                  Colors.transparent,
-                  Color(0x08000000),
-                  Color(0xE8000000),
-                ],
-                stops: [0, 0.28, 0.58, 1],
+          if (_controller != null && widget.active)
+            _controller!.buildView()
+          else if (!isLandscape && !isWideVideo)
+            HgCoverImage(url: widget.detail.cover, title: widget.detail.title),
+          if (!isLandscape && widget.chromeVisible)
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0x36000000),
+                    Colors.transparent,
+                    Color(0x08000000),
+                    Color(0xE8000000),
+                  ],
+                  stops: [0, 0.28, 0.58, 1],
+                ),
               ),
             ),
-          ),
           if (_loading)
             const Center(
               child: SizedBox(
@@ -1347,13 +1300,6 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
                   color: Colors.white,
                   strokeWidth: 2.3,
                 ),
-              ),
-            )
-          else if (_error != null)
-            Center(
-              child: _InlinePlaybackError(
-                error: _error!,
-                onRetry: _initializePlayback,
               ),
             ),
           Positioned.fill(
@@ -1367,6 +1313,13 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
               child: const SizedBox.expand(),
             ),
           ),
+          if (!_loading && _error != null)
+            Center(
+              child: _InlinePlaybackError(
+                error: _error!,
+                onRetry: _initializePlayback,
+              ),
+            ),
           if (!isLandscape)
             Positioned.fill(
               child: AnimatedOpacity(
@@ -1380,7 +1333,7 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
                       Positioned(
                         left: 18,
                         right: 76,
-                        bottom: 150,
+                        bottom: 170,
                         child: SafeArea(
                           top: false,
                           bottom: false,
@@ -1413,7 +1366,7 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
                       ),
                       Positioned(
                         right: 8,
-                        bottom: 150,
+                        bottom: 170,
                         child: SafeArea(
                           top: false,
                           bottom: false,
@@ -1458,7 +1411,6 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
                                     onScrubStart: _startScrubbing,
                                     onScrubUpdate: _updateScrubbing,
                                     onScrubEnd: _finishScrubbing,
-                                    onTapSeek: _seekFromTap,
                                   ),
                                 ),
                                 const SizedBox(height: 7),
@@ -1479,14 +1431,16 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
             ),
           if (isLandscape)
             _buildLandscapeChrome(context, liked: liked, favorite: favorite),
-          if (_speedBoosting || widget.speedLocked)
+          if (_speedBoosting)
             Positioned(
               top: MediaQuery.paddingOf(context).top + 70,
               left: 0,
               right: 0,
               child: IgnorePointer(
                 child: Center(
-                  child: _SpeedLockHint(locked: widget.speedLocked),
+                  child: _SpeedLockHint(
+                    locked: _speedLockInGesture ?? widget.speedLocked,
+                  ),
                 ),
               ),
             ),
@@ -1501,19 +1455,18 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
               child: AnimatedBuilder(
                 animation: _controller!,
                 builder: (context, child) {
-                  if (_controller!.isPlaying || !widget.chromeVisible) {
+                  if (_controller!.isPlaying ||
+                      !widget.chromeVisible ||
+                      _scrubbing ||
+                      _seeking) {
                     return const SizedBox.shrink();
                   }
-                  return Center(
+                  return const Center(
                     child: Icon(
-                      _controller!.isPlaying
-                          ? Icons.pause_rounded
-                          : Icons.play_arrow_rounded,
+                      Icons.play_arrow_rounded,
                       color: Colors.white,
                       size: 54,
-                      shadows: const [
-                        Shadow(color: Colors.black54, blurRadius: 14),
-                      ],
+                      shadows: [Shadow(color: Colors.black54, blurRadius: 14)],
                     ),
                   );
                 },
@@ -1534,7 +1487,6 @@ class _SeekBar extends StatefulWidget {
     required this.onScrubStart,
     required this.onScrubUpdate,
     required this.onScrubEnd,
-    required this.onTapSeek,
   });
 
   final Duration position;
@@ -1544,7 +1496,6 @@ class _SeekBar extends StatefulWidget {
   final ValueChanged<double> onScrubStart;
   final ValueChanged<double> onScrubUpdate;
   final ValueChanged<double> onScrubEnd;
-  final ValueChanged<double> onTapSeek;
 
   @override
   State<_SeekBar> createState() => _SeekBarState();
