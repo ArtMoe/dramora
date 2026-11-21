@@ -1,15 +1,24 @@
 abstract final class HgAppMetadata {
-  static const String version = '1.4.17';
-  static const String buildNumber = '22';
-  static const String versionLabel = 'v1.4.17 (22)';
-  static const String releaseTitle = '播放按钮触控优化版';
+  static const String version = '1.4.18';
+  static const String buildNumber = '23';
+  static const String versionLabel = 'v1.4.18 (23)';
+  static const String releaseTitle = '播放器可读性优化版';
   static const List<String> releaseNotes = [
-    '暂停时显示的播放图标现在有独立的大触控区域，点击更稳定。',
-    '播放按钮保持无底色大图标视觉，同时补充“继续播放”语义标签。',
-    '缓冲指示器继续不拦截手势，不影响暂停、拖动和倍速操作。',
+    '播放器互动栏与横屏操作栏增加轻微投影，浅色封面上的白色图标和数字更清楚。',
+    '投影只作用于图标与文字，不增加按钮底色，保持清爽的短视频观看体验。',
+    '继续保留无底色播放按钮、横向拖动进度和半屏面板的统一手感。',
   ];
 
   static const List<HgReleaseRecord> releaseHistory = [
+    HgReleaseRecord(
+      version: 'v1.4.18',
+      buildNumber: '23',
+      date: '2026-11-21',
+      title: '播放器可读性优化版',
+      features: [],
+      improvements: ['互动栏、横屏操作栏的文字和图标增加轻微投影，提升浅色画面上的可读性。'],
+      fixes: [],
+    ),
     HgReleaseRecord(
       version: 'v1.4.17',
       buildNumber: '22',

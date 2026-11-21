@@ -1729,6 +1729,13 @@ class _SpeedLockHint extends StatelessWidget {
   }
 }
 
+const List<Shadow> _kPlayerIconShadow = [
+  Shadow(color: Color(0x99000000), blurRadius: 8, offset: Offset(0, 1)),
+];
+const List<Shadow> _kPlayerLabelShadow = [
+  Shadow(color: Color(0x99000000), blurRadius: 7, offset: Offset(0, 1)),
+];
+
 class _ActionRail extends StatelessWidget {
   const _ActionRail({
     required this.liked,
@@ -1847,7 +1854,7 @@ class _LandscapeAction extends StatelessWidget {
         padding: const EdgeInsets.only(right: 18, top: 12, bottom: 12),
         child: Row(
           children: [
-            Icon(icon, color: color, size: 23),
+            Icon(icon, color: color, size: 23, shadows: _kPlayerIconShadow),
             const SizedBox(width: 5),
             Text(
               label,
@@ -1855,6 +1862,7 @@ class _LandscapeAction extends StatelessWidget {
                 color: Colors.white,
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
+                shadows: _kPlayerLabelShadow,
               ),
             ),
           ],
@@ -1935,6 +1943,7 @@ class _RailAction extends StatelessWidget {
                   key: ValueKey<IconData>(icon),
                   color: color,
                   size: 24,
+                  shadows: _kPlayerIconShadow,
                 ),
               ),
             ),
@@ -1945,6 +1954,7 @@ class _RailAction extends StatelessWidget {
                 color: Colors.white,
                 fontSize: 9.5,
                 fontWeight: FontWeight.w600,
+                shadows: _kPlayerLabelShadow,
               ),
             ),
           ],
