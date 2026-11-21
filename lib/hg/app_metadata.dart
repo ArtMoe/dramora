@@ -1,16 +1,28 @@
 abstract final class HgAppMetadata {
-  static const String version = '1.4.12';
-  static const String buildNumber = '17';
-  static const String versionLabel = 'v1.4.12 (17)';
-  static const String releaseTitle = '播放器手势增强版';
+  static const String version = '1.4.13';
+  static const String buildNumber = '18';
+  static const String versionLabel = 'v1.4.13 (18)';
+  static const String releaseTitle = '个人中心清晰度版';
   static const List<String> releaseNotes = [
-    '播放画面支持左右拖动预览进度，不必再精准点中底部进度条。',
-    '拖动时暂停画面并显示目标时间、快进或后退秒数，松手立即跳转。',
-    '正在播放时跳转完成后自动继续播放；暂停状态不会擅自恢复播放。',
-    '竖屏、横屏和清屏状态均可使用横向拖动，边界会自动限制在片头与片尾。',
+    '我的页面追剧、历史、喜欢增加明确的选中状态，当前内容库一眼可辨。',
+    '内容库切换使用颜色、字重和短指示线表达状态，不增加灰色底块或弹跳动画。',
+    '个人中心快捷入口增加轻触反馈，切换后自动滚动到对应内容区域。',
+    '设置中的关于果幕改为说明产品定位、数据来源与隐私边界，减少版本信息重复。',
   ];
 
   static const List<HgReleaseRecord> releaseHistory = [
+    HgReleaseRecord(
+      version: 'v1.4.13',
+      buildNumber: '18',
+      date: '2026-11-21',
+      title: '个人中心清晰度版',
+      features: ['我的页面追剧、历史和喜欢内容库增加选中态、轻触反馈与自动定位。'],
+      improvements: [
+        '选中状态仅使用强调色、字重和短指示线，不增加灰色底块或缩放动画。',
+        '关于果幕说明聚焦产品定位、数据来源与隐私边界。',
+      ],
+      fixes: [],
+    ),
     HgReleaseRecord(
       version: 'v1.4.12',
       buildNumber: '17',

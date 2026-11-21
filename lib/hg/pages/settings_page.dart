@@ -398,7 +398,7 @@ class _SettingsPageState extends State<SettingsPage> {
               _SettingsRow(
                 leading: const _RowIcon(Icons.code_rounded),
                 title: '关于果幕',
-                subtitle: '版本信息、数据边界与技术说明',
+                subtitle: '产品定位、数据来源与隐私说明',
                 trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(

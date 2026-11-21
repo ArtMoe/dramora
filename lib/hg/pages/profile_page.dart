@@ -253,6 +253,7 @@ class _ProfilePageState extends State<ProfilePage> {
             if (auth.isLoggedIn)
               SliverToBoxAdapter(
                 child: _QuickActions(
+                  selected: _tab,
                   onCollections: () => _openTab(0),
                   onHistory: () => _openTab(1),
                   onLikes: () => _openTab(2),
@@ -643,11 +644,13 @@ class _ProfileStat extends StatelessWidget {
 
 class _QuickActions extends StatelessWidget {
   const _QuickActions({
+    required this.selected,
     required this.onCollections,
     required this.onHistory,
     required this.onLikes,
   });
 
+  final int selected;
   final VoidCallback onCollections;
   final VoidCallback onHistory;
   final VoidCallback onLikes;
@@ -655,71 +658,64 @@ class _QuickActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final actions = [
-      (Icons.star_rounded, '追剧', context.hgOnSurface, onCollections, 0),
-      (Icons.history_rounded, '历史', context.hgOnSurface, onHistory, 0),
-      (Icons.favorite_rounded, '喜欢', context.hgOnSurface, onLikes, 0),
+      (Icons.star_rounded, '追剧', onCollections),
+      (Icons.history_rounded, '历史', onHistory),
+      (Icons.favorite_rounded, '喜欢', onLikes),
     ];
     return Container(
       margin: const EdgeInsets.fromLTRB(14, 0, 14, 0),
-      padding: const EdgeInsets.symmetric(vertical: 14),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       decoration: BoxDecoration(
         color: context.hgSurface,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
-        children: actions
-            .map(
-              (action) => Expanded(
-                child: HgInkWell(
-                  onTap: action.$4,
-                  child: Column(
-                    children: [
-                      Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          Icon(action.$1, color: action.$3, size: 24),
-                          if (action.$5 > 0)
-                            Positioned(
-                              top: -5,
-                              right: -9,
-                              child: Container(
-                                constraints: const BoxConstraints(minWidth: 15),
-                                height: 15,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 3,
-                                ),
-                                alignment: Alignment.center,
-                                decoration: const BoxDecoration(
-                                  color: HgColors.orange,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Text(
-                                  action.$5 > 99 ? '99+' : '${action.$5}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
+        children: List.generate(actions.length, (index) {
+          final action = actions[index];
+          final active = selected == index;
+          return Expanded(
+            child: Semantics(
+              selected: active,
+              child: HgPressable(
+                haptic: true,
+                semanticLabel: action.$2,
+                onTap: action.$3,
+                pressedOpacity: 0.68,
+                child: Column(
+                  children: [
+                    Icon(
+                      action.$1,
+                      color: active ? HgColors.orange : context.hgMuted,
+                      size: 24,
+                    ),
+                    const SizedBox(height: 7),
+                    AnimatedDefaultTextStyle(
+                      duration: const Duration(milliseconds: 160),
+                      curve: Curves.easeOutCubic,
+                      style: TextStyle(
+                        color: active ? context.hgOnSurface : context.hgMuted,
+                        fontSize: 11.5,
+                        fontWeight: active ? FontWeight.w700 : FontWeight.w500,
                       ),
-                      const SizedBox(height: 7),
-                      Text(
-                        action.$2,
-                        style: TextStyle(
-                          color: context.hgOnSurface,
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w500,
-                        ),
+                      child: Text(action.$2),
+                    ),
+                    const SizedBox(height: 5),
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      curve: Curves.easeOutCubic,
+                      width: active ? 14 : 0,
+                      height: 3,
+                      decoration: BoxDecoration(
+                        color: HgColors.orange,
+                        borderRadius: BorderRadius.circular(99),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
-            )
-            .toList(growable: false),
+            ),
+          );
+        }),
       ),
     );
   }
