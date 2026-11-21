@@ -1,16 +1,29 @@
 abstract final class HgAppMetadata {
-  static const String version = '1.4.10';
-  static const String buildNumber = '15';
-  static const String versionLabel = 'v1.4.10 (15)';
-  static const String releaseTitle = '半屏交互与播放手感版';
+  static const String version = '1.4.11';
+  static const String buildNumber = '16';
+  static const String versionLabel = 'v1.4.11 (16)';
+  static const String releaseTitle = '首页顺滑与后台节能版';
   static const List<String> releaseNotes = [
-    '统一半屏面板拖动，顶部横条可展开、收起和关闭，面板不会再只跟着外层弹窗移动。',
-    '登录、评论和编辑资料统一处理键盘避让，修复重复底部留白与输入框被遮挡。',
-    '播放页单击直接暂停或继续，清屏状态下也会先恢复控件，交互更接近短视频平台。',
-    '播放器进度条、缓冲提示与自动连播继续优化，减少切集和调整进度时的等待感。',
+    '首页幻灯片首张与指示点对齐，切换动画更短更自然。',
+    '手动滑动幻灯片时会暂停自动轮播，松手后重新计时，不再与自动切页抢动效。',
+    '离开首页或其他底部页面后自动停止不可见页面的动画，减少后台卡顿与耗电。',
+    '底部导航切换增加轻触反馈，页面切换更接近原生应用。',
   ];
 
   static const List<HgReleaseRecord> releaseHistory = [
+    HgReleaseRecord(
+      version: 'v1.4.11',
+      buildNumber: '16',
+      date: '2026-11-21',
+      title: '首页顺滑与后台节能版',
+      features: ['首页幻灯片与底部页面切换增加更自然的原生交互反馈。'],
+      improvements: [
+        '首页幻灯片离开当前 Tab 后停止自动推进，手动滑动结束再恢复计时。',
+        '幻灯片自动切换缩短到 520 毫秒，并校正首张与指示点状态。',
+        '不可见页面停用动画调度，减少后台帧更新与资源消耗。',
+      ],
+      fixes: ['修复部分幻灯片初始页码与底部指示点不一致的问题。'],
+    ),
     HgReleaseRecord(
       version: 'v1.4.10',
       buildNumber: '15',

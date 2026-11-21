@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -167,6 +168,7 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
 
   void _select(int index) {
     if (index == _index) return;
+    HapticFeedback.selectionClick();
     setState(() {
       _index = index;
       _visited.add(index);
@@ -178,8 +180,15 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
       index: _index,
       children: List.generate(
         _pages.length,
-        (index) =>
-            _visited.contains(index) ? _pages[index] : const SizedBox.shrink(),
+        (index) => _visited.contains(index)
+            ? TickerMode(
+                enabled: index == _index,
+                child: ExcludeSemantics(
+                  excluding: index != _index,
+                  child: _pages[index],
+                ),
+              )
+            : const SizedBox.shrink(),
       ),
     );
   }
