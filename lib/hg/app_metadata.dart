@@ -1,15 +1,24 @@
 abstract final class HgAppMetadata {
-  static const String version = '1.4.16';
-  static const String buildNumber = '21';
-  static const String versionLabel = 'v1.4.16 (21)';
-  static const String releaseTitle = '后台节能与加载优化版';
+  static const String version = '1.4.17';
+  static const String buildNumber = '22';
+  static const String versionLabel = 'v1.4.17 (22)';
+  static const String releaseTitle = '播放按钮触控优化版';
   static const List<String> releaseNotes = [
-    '全局骨架屏动画现在会跟随页面可见性自动暂停，离开当前 Tab 或切到后台后不再持续重绘。',
-    '页面重新可见时骨架动画自动恢复，不影响加载状态和视觉连续性。',
-    '继续统一首页、详情页、标签页与作者页的深色模式细节。',
+    '暂停时显示的播放图标现在有独立的大触控区域，点击更稳定。',
+    '播放按钮保持无底色大图标视觉，同时补充“继续播放”语义标签。',
+    '缓冲指示器继续不拦截手势，不影响暂停、拖动和倍速操作。',
   ];
 
   static const List<HgReleaseRecord> releaseHistory = [
+    HgReleaseRecord(
+      version: 'v1.4.17',
+      buildNumber: '22',
+      date: '2026-11-21',
+      title: '播放按钮触控优化版',
+      features: ['暂停状态中央播放图标增加独立点击热区与继续播放语义。'],
+      improvements: ['保持无底色大图标视觉，新增 96 逻辑像素的透明触控区域。'],
+      fixes: [],
+    ),
     HgReleaseRecord(
       version: 'v1.4.16',
       buildNumber: '21',

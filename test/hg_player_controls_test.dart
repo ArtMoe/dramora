@@ -58,6 +58,26 @@ void main() {
     expect(tester.widget<Slider>(find.byType(Slider)).value, 0.61);
   });
 
+  testWidgets('paused feedback exposes a tappable play target', (tester) async {
+    var taps = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HgPlaybackFeedback(
+          busy: false,
+          paused: true,
+          onPlay: () => taps++,
+        ),
+      ),
+    );
+    expect(
+      find.byKey(const ValueKey('hg-playback-play-button')),
+      findsOneWidget,
+    );
+    expect(find.bySemanticsLabel('继续播放'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('hg-playback-play-button')));
+    expect(taps, 1);
+  });
+
   testWidgets('buffering ignores brief stalls and cancels on dispose', (
     tester,
   ) async {

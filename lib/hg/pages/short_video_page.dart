@@ -1615,6 +1615,7 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
                       !_scrubbing &&
                       !_seeking &&
                       !_horizontalSeeking,
+                  onPlay: _togglePlayback,
                 ),
               ),
             ),

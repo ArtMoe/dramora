@@ -8,10 +8,12 @@ class HgPlaybackFeedback extends StatefulWidget {
     super.key,
     required this.busy,
     required this.paused,
+    this.onPlay,
   });
 
   final bool busy;
   final bool paused;
+  final VoidCallback? onPlay;
 
   @override
   State<HgPlaybackFeedback> createState() => _HgPlaybackFeedbackState();
@@ -67,12 +69,27 @@ class _HgPlaybackFeedbackState extends State<HgPlaybackFeedback> {
       );
     }
     if (!widget.paused || widget.busy) return const SizedBox.shrink();
-    return const Center(
-      child: Icon(
-        Icons.play_arrow_rounded,
-        color: Colors.white,
-        size: 54,
-        shadows: [Shadow(color: Colors.black54, blurRadius: 14)],
+    return Center(
+      child: Semantics(
+        button: true,
+        label: '继续播放',
+        child: GestureDetector(
+          key: const ValueKey('hg-playback-play-button'),
+          behavior: HitTestBehavior.opaque,
+          onTap: widget.onPlay,
+          child: Container(
+            width: 96,
+            height: 96,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(shape: BoxShape.circle),
+            child: const Icon(
+              Icons.play_arrow_rounded,
+              color: Colors.white,
+              size: 54,
+              shadows: [Shadow(color: Colors.black54, blurRadius: 14)],
+            ),
+          ),
+        ),
       ),
     );
   }
