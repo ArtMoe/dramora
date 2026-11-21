@@ -169,13 +169,16 @@ class _CreatorPageState extends State<CreatorPage> {
                       child: Row(
                         children: [
                           Material(
-                            color: Colors.white.withValues(alpha: 0.7),
+                            color: dark
+                                ? Colors.white.withValues(alpha: 0.12)
+                                : Colors.white.withValues(alpha: 0.7),
                             shape: const CircleBorder(),
                             child: IconButton(
                               onPressed: () => Navigator.maybePop(context),
-                              icon: const Icon(
+                              icon: Icon(
                                 Icons.arrow_back_ios_new_rounded,
                                 size: 18,
+                                color: dark ? Colors.white : HgColors.ink,
                               ),
                             ),
                           ),

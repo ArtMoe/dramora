@@ -1,16 +1,24 @@
 abstract final class HgAppMetadata {
-  static const String version = '1.4.14';
-  static const String buildNumber = '19';
-  static const String versionLabel = 'v1.4.14 (19)';
-  static const String releaseTitle = '详情页与深色模式修正版';
+  static const String version = '1.4.15';
+  static const String buildNumber = '20';
+  static const String versionLabel = 'v1.4.15 (20)';
+  static const String releaseTitle = '深色模式细节统一版';
   static const List<String> releaseNotes = [
-    '修复短剧详情更多菜单在深色模式下文字和图标接近黑色、难以看清的问题。',
-    '移除详情更多菜单顶部重复的关闭按钮，统一使用面板拖动条关闭。',
-    '详情页评分增加半透明底色和细边框，复杂封面上的数字更清晰。',
-    '统一详情菜单操作项的颜色来源，浅色与深色模式都能跟随系统主题。',
+    '标签目录和标签详情中的分类、热度与说明文字改为跟随主题，深色模式不再偏灰难读。',
+    '作者页返回按钮在深色渐变背景上改为白色，浅色模式保持深色图标。',
+    '统一详情页、标签页和作者页的辅助文字颜色来源，深浅主题切换更一致。',
   ];
 
   static const List<HgReleaseRecord> releaseHistory = [
+    HgReleaseRecord(
+      version: 'v1.4.15',
+      buildNumber: '20',
+      date: '2026-11-21',
+      title: '深色模式细节统一版',
+      features: [],
+      improvements: ['标签目录、标签详情和作者页的辅助元素统一使用主题色，深浅模式切换更一致。'],
+      fixes: ['修复深色模式下标签分类、热度与说明文字偏灰难读的问题。', '修复作者页深色背景上返回按钮对比度不足的问题。'],
+    ),
     HgReleaseRecord(
       version: 'v1.4.14',
       buildNumber: '19',
