@@ -1,20 +1,38 @@
 abstract final class HgAppMetadata {
-  static const String version = '1.4.23';
-  static const String buildNumber = '28';
-  static const String versionLabel = 'v1.4.23 (28)';
-  static const String releaseTitle = '数据源同步与应用内更新版';
+  static const String version = '1.4.24';
+  static const String buildNumber = '29';
+  static const String versionLabel = 'v1.4.24 (29)';
+  static const String releaseTitle = '清屏与横屏播放体验优化版';
   static const List<String> releaseNotes = [
-    '自动同步官方最新地址，改进连接与数据源面板，按本机网络选择线路。',
-    'Android 通过 GitHub API 在应用内下载更新，显示进度并在完成后打开系统安装。',
-    'iOS 更新提供手动下载安装说明。',
-    '搜索栏固定在顶部，支持点击搜索，滚动结果时仍可随时修改关键词。',
-    '修复快速切换关键词、清空输入后旧结果重新出现的问题。',
-    '翻页失败保留已加载内容，可在列表底部重试；短列表自动继续加载。',
-    '热搜与推荐分批显示，优化深色模式联想词可读性和编辑时的联想体验。',
-    '猜你喜欢进入详情时保留同组推荐，返回搜索后继续原来的位置。',
+    '清屏后轻点画面恢复控件，视频继续播放。',
+    '横屏轻点显示或隐藏控件，通过中央按钮播放、暂停。',
+    '横屏播放时控件自动收起，暂停、拖动与无障碍导航时保持可用。',
+    '横屏返回先退出全屏，保留当前剧集和播放进度。',
+    '拖动进度时暂停，松手跳转后恢复之前的播放状态。',
+    '修复快进失败后意外停播的问题，快进完成时保留切集后的播放状态。',
+    '修复静音图标未及时更新，以及宽屏视频识别后的全屏入口显示问题。',
   ];
 
   static const List<HgReleaseRecord> releaseHistory = [
+    HgReleaseRecord(
+      version: 'v1.4.24',
+      buildNumber: '29',
+      date: '2026-11-21',
+      title: '清屏与横屏播放体验优化版',
+      features: [],
+      improvements: [
+        '清屏恢复与播放暂停分开，轻点恢复控件时不中断观看。',
+        '横屏支持轻点显隐控件、中央播放暂停和播放时自动收起。',
+        '暂停、按住屏幕、拖动进度或使用无障碍导航时保留控件。',
+        '横屏返回先回到竖屏，保持当前剧集与进度。',
+        '进度拖动期间暂停，完成后恢复之前的播放状态。',
+      ],
+      fixes: [
+        '修复水平快进失败后视频保持暂停的问题。',
+        '快进完成时仅恢复当前剧集，保持切集后的播放状态。',
+        '修复静音图标未随音量切换更新、宽屏视频识别后全屏入口未显示的问题。',
+      ],
+    ),
     HgReleaseRecord(
       version: 'v1.4.23',
       buildNumber: '28',

@@ -191,7 +191,14 @@ class HgVideoController extends ChangeNotifier {
       }),
     );
 
-    if (_Hls.isSupported()) {
+    final path = Uri.tryParse(url)?.path.toLowerCase() ?? '';
+    final nativeMedia =
+        url.startsWith('blob:') ||
+        url.startsWith('data:video/') ||
+        ['.mp4', '.m4v', '.webm', '.mov'].any(path.endsWith);
+    if (nativeMedia) {
+      video.src = url;
+    } else if (_Hls.isSupported()) {
       _hls = _Hls()
         ..loadSource(url)
         ..attachMedia(video);

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 abstract final class HgPlayerDisplay {
@@ -6,6 +7,9 @@ abstract final class HgPlayerDisplay {
     DeviceOrientation.landscapeRight,
   ];
   static Future<void> _pending = Future.value();
+
+  @visibleForTesting
+  static void resetQueueForTesting() => _pending = Future.value();
 
   static Future<void> enterAutoRotate() =>
       _apply([DeviceOrientation.portraitUp, ..._landscape]);
