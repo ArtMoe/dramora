@@ -441,6 +441,28 @@ void main() {
     expect(find.byType(HgLoading), findsOneWidget);
   });
 
+  for (final size in [
+    const Size(560, 740),
+    const Size(844, 360),
+    const Size(1024, 500),
+  ]) {
+    for (final variant in HgLoadingVariant.values) {
+      testWidgets('loading $variant fits constrained viewport $size', (
+        tester,
+      ) async {
+        await tester.binding.setSurfaceSize(size);
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(body: HgLoading(variant: variant)),
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 120));
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
+
   test('compares GitHub release versions', () {
     expect(HgUpdateService.compareVersions('v1.4.0', '1.3.9'), 1);
     expect(HgUpdateService.compareVersions('1.4', 'v1.4.0'), 0);

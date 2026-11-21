@@ -821,59 +821,61 @@ class _HgLoadingState extends State<HgLoading>
             final width = constraints.maxWidth;
             final compact = width < 640;
             if (widget.variant == HgLoadingVariant.list) {
-              return Padding(
-                padding: EdgeInsets.fromLTRB(
-                  compact ? 16 : 24,
-                  16,
-                  compact ? 16 : 24,
-                  30,
-                ),
-                child: Column(
-                  children: List.generate(
-                    6,
-                    (index) => Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Row(
-                        children: [
-                          _bone(
-                            context,
-                            progress: progress,
-                            width: compact ? 76 : 92,
-                            height: compact ? 98 : 112,
-                            radius: 18,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _bone(
-                                  context,
-                                  progress: progress,
-                                  width: width * (index.isEven ? 0.42 : 0.52),
-                                  height: 16,
-                                  radius: 8,
-                                ),
-                                const SizedBox(height: 10),
-                                _bone(
-                                  context,
-                                  progress: progress,
-                                  width: width * 0.3,
-                                  height: 11,
-                                  radius: 6,
-                                ),
-                                const SizedBox(height: 18),
-                                _bone(
-                                  context,
-                                  progress: progress,
-                                  width: width * 0.34,
-                                  height: 10,
-                                  radius: 6,
-                                ),
-                              ],
+              return SingleChildScrollView(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    compact ? 16 : 24,
+                    16,
+                    compact ? 16 : 24,
+                    30,
+                  ),
+                  child: Column(
+                    children: List.generate(
+                      6,
+                      (index) => Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Row(
+                          children: [
+                            _bone(
+                              context,
+                              progress: progress,
+                              width: compact ? 76 : 92,
+                              height: compact ? 98 : 112,
+                              radius: 18,
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _bone(
+                                    context,
+                                    progress: progress,
+                                    width: width * (index.isEven ? 0.42 : 0.52),
+                                    height: 16,
+                                    radius: 8,
+                                  ),
+                                  const SizedBox(height: 10),
+                                  _bone(
+                                    context,
+                                    progress: progress,
+                                    width: width * 0.3,
+                                    height: 11,
+                                    radius: 6,
+                                  ),
+                                  const SizedBox(height: 18),
+                                  _bone(
+                                    context,
+                                    progress: progress,
+                                    width: width * 0.34,
+                                    height: 10,
+                                    radius: 6,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -881,53 +883,55 @@ class _HgLoadingState extends State<HgLoading>
               );
             }
             final columns = width >= 1000 ? 4 : 2;
-            return Padding(
-              padding: EdgeInsets.fromLTRB(
-                compact ? 16 : 24,
-                16,
-                compact ? 16 : 24,
-                30,
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      _bone(
+            return SingleChildScrollView(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  compact ? 16 : 24,
+                  16,
+                  compact ? 16 : 24,
+                  30,
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        _bone(
+                          context,
+                          progress: progress,
+                          width: compact ? 104 : 132,
+                          height: 26,
+                          radius: 9,
+                        ),
+                        const Spacer(),
+                        _bone(
+                          context,
+                          progress: progress,
+                          width: 52,
+                          height: 14,
+                          radius: 7,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: columns,
+                        crossAxisSpacing: compact ? 11 : 15,
+                        mainAxisSpacing: compact ? 14 : 18,
+                        childAspectRatio: 0.68,
+                      ),
+                      itemCount: columns == 2 ? 4 : 8,
+                      itemBuilder: (context, index) => _bone(
                         context,
                         progress: progress,
-                        width: compact ? 104 : 132,
-                        height: 26,
-                        radius: 9,
+                        height: double.infinity,
+                        radius: 20,
                       ),
-                      const Spacer(),
-                      _bone(
-                        context,
-                        progress: progress,
-                        width: 52,
-                        height: 14,
-                        radius: 7,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: columns,
-                      crossAxisSpacing: compact ? 11 : 15,
-                      mainAxisSpacing: compact ? 14 : 18,
-                      childAspectRatio: 0.68,
                     ),
-                    itemCount: columns == 2 ? 4 : 8,
-                    itemBuilder: (context, index) => _bone(
-                      context,
-                      progress: progress,
-                      height: double.infinity,
-                      radius: 20,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             );
           },

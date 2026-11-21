@@ -1,18 +1,23 @@
 abstract final class HgAppMetadata {
-  static const String version = '1.4.20';
-  static const String buildNumber = '25';
-  static const String versionLabel = 'v1.4.20 (25)';
-  static const String releaseTitle = '半屏交互与中文显示优化版';
+  static const String version = '1.4.21';
+  static const String buildNumber = '26';
+  static const String versionLabel = 'v1.4.21 (26)';
+  static const String releaseTitle = '加载布局适配修正版';
   static const List<String> releaseNotes = [
-    '修复登录、评论等半屏面板上方出现大片空白，以及点击外部无法关闭的问题。',
-    '统一面板展开、收起和键盘避让，系统开启减少动态效果时同步简化动画。',
-    '修复部分环境中追剧等按钮中文显示为方框的问题。',
-    '顶部拖动横条补充读屏提示，支持轻点展开或收起面板。',
-    '修复 iOS 实时活动扩展版本未随应用更新的问题。',
-    '详情页缓存全集入口移至选集区，底部播放与追剧操作更清晰。',
+    '修复宽屏、小窗口和横屏下部分加载骨架超出页面的问题。',
+    '加载占位内容可在有限高度内滚动，继续保持统一的卡片比例。',
   ];
 
   static const List<HgReleaseRecord> releaseHistory = [
+    HgReleaseRecord(
+      version: 'v1.4.21',
+      buildNumber: '26',
+      date: '2026-11-21',
+      title: '加载布局适配修正版',
+      features: [],
+      improvements: ['列表和卡片加载占位支持在有限高度内滚动，适配宽屏与小窗口。'],
+      fixes: ['修复横屏、桌面分栏等场景中加载骨架超出页面边界的问题。'],
+    ),
     HgReleaseRecord(
       version: 'v1.4.20',
       buildNumber: '25',
