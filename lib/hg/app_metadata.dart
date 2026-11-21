@@ -1,15 +1,27 @@
 abstract final class HgAppMetadata {
-  static const String version = '1.4.15';
-  static const String buildNumber = '20';
-  static const String versionLabel = 'v1.4.15 (20)';
-  static const String releaseTitle = '深色模式细节统一版';
+  static const String version = '1.4.16';
+  static const String buildNumber = '21';
+  static const String versionLabel = 'v1.4.16 (21)';
+  static const String releaseTitle = '后台节能与加载优化版';
   static const List<String> releaseNotes = [
-    '标签目录和标签详情中的分类、热度与说明文字改为跟随主题，深色模式不再偏灰难读。',
-    '作者页返回按钮在深色渐变背景上改为白色，浅色模式保持深色图标。',
-    '统一详情页、标签页和作者页的辅助文字颜色来源，深浅主题切换更一致。',
+    '全局骨架屏动画现在会跟随页面可见性自动暂停，离开当前 Tab 或切到后台后不再持续重绘。',
+    '页面重新可见时骨架动画自动恢复，不影响加载状态和视觉连续性。',
+    '继续统一首页、详情页、标签页与作者页的深色模式细节。',
   ];
 
   static const List<HgReleaseRecord> releaseHistory = [
+    HgReleaseRecord(
+      version: 'v1.4.16',
+      buildNumber: '21',
+      date: '2026-11-21',
+      title: '后台节能与加载优化版',
+      features: [],
+      improvements: [
+        '骨架屏动画接入页面可见性和应用生命周期，不可见时停止刷新。',
+        '页面重新可见或恢复前台后自动继续加载动画，保持界面状态连贯。',
+      ],
+      fixes: [],
+    ),
     HgReleaseRecord(
       version: 'v1.4.15',
       buildNumber: '20',
