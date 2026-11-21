@@ -1,16 +1,28 @@
 abstract final class HgAppMetadata {
-  static const String version = '1.4.13';
-  static const String buildNumber = '18';
-  static const String versionLabel = 'v1.4.13 (18)';
-  static const String releaseTitle = '个人中心清晰度版';
+  static const String version = '1.4.14';
+  static const String buildNumber = '19';
+  static const String versionLabel = 'v1.4.14 (19)';
+  static const String releaseTitle = '详情页与深色模式修正版';
   static const List<String> releaseNotes = [
-    '我的页面追剧、历史、喜欢增加明确的选中状态，当前内容库一眼可辨。',
-    '内容库切换使用颜色、字重和短指示线表达状态，不增加灰色底块或弹跳动画。',
-    '个人中心快捷入口增加轻触反馈，切换后自动滚动到对应内容区域。',
-    '设置中的关于果幕改为说明产品定位、数据来源与隐私边界，减少版本信息重复。',
+    '修复短剧详情更多菜单在深色模式下文字和图标接近黑色、难以看清的问题。',
+    '移除详情更多菜单顶部重复的关闭按钮，统一使用面板拖动条关闭。',
+    '详情页评分增加半透明底色和细边框，复杂封面上的数字更清晰。',
+    '统一详情菜单操作项的颜色来源，浅色与深色模式都能跟随系统主题。',
   ];
 
   static const List<HgReleaseRecord> releaseHistory = [
+    HgReleaseRecord(
+      version: 'v1.4.14',
+      buildNumber: '19',
+      date: '2026-11-21',
+      title: '详情页与深色模式修正版',
+      features: [],
+      improvements: [
+        '详情页评分信息增加稳定的半透明承托层，封面复杂时仍能快速读取。',
+        '更多菜单操作项颜色改为跟随主题，浅色与深色模式保持一致。',
+      ],
+      fixes: ['修复详情更多菜单在深色模式下文字和图标不可见的问题。', '修复半屏详情菜单同时出现关闭按钮和拖动条的重复操作问题。'],
+    ),
     HgReleaseRecord(
       version: 'v1.4.13',
       buildNumber: '18',

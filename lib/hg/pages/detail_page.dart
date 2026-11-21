@@ -140,10 +140,6 @@ class _DramaDetailPageState extends State<DramaDetailPage> {
                         ],
                       ),
                     ),
-                    IconButton(
-                      onPressed: () => Navigator.pop(sheetContext),
-                      icon: const Icon(Icons.close_rounded, size: 20),
-                    ),
                   ],
                 ),
               ),
@@ -415,7 +411,11 @@ class _DramaDetailPageState extends State<DramaDetailPage> {
                                 vertical: 8,
                               ),
                               decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.34),
                                 borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.12),
+                                ),
                               ),
                               child: Row(
                                 children: [
@@ -719,7 +719,7 @@ class _DetailAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effective = color ?? HgColors.ink;
+    final effective = color ?? Theme.of(context).colorScheme.onSurface;
     return HgInkWell(
       onTap: onTap,
       child: Padding(
