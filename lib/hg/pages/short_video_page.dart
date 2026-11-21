@@ -141,11 +141,15 @@ class _ShortVideoPageState extends State<ShortVideoPage>
       final initialIndex = episodeIndex < 0 ? 0 : episodeIndex;
       final initialPosition =
           widget.initialPositionMs ??
-          (wanted == history?.lastEpisode ? history?.positionMs ?? 0 : 0);
+          (episodeIndex >= 0 && wanted == history?.lastEpisode
+              ? history?.positionMs ?? 0
+              : 0);
       if (!mounted) return;
       _details[detail.id] = detail;
       _currentPositionMs = initialPosition;
-      _currentDurationMs = history?.durationMs ?? 0;
+      _currentDurationMs = episodeIndex >= 0 && wanted == history?.lastEpisode
+          ? history?.durationMs ?? 0
+          : 0;
       _entries.addAll(
         episodes.map(
           (episode) => _EpisodeEntry(
@@ -311,20 +315,26 @@ class _ShortVideoPageState extends State<ShortVideoPage>
     );
   }
 
-  void _handleProgress(Duration position, Duration duration) {
-    _currentPositionMs = position.inMilliseconds;
-    _currentDurationMs = duration.inMilliseconds;
-    if (_entries.isEmpty ||
-        _currentPage < 0 ||
-        _currentPage >= _entries.length) {
+  void _handleProgress(
+    _EpisodeEntry entry,
+    Duration position,
+    Duration duration,
+  ) {
+    entry.resumePositionMs = position.inMilliseconds;
+    if (_entries.isNotEmpty && identical(_entries[_currentPage], entry)) {
+      _currentPositionMs = position.inMilliseconds;
+      _currentDurationMs = duration.inMilliseconds;
+    } else if (_entries.isNotEmpty &&
+        _entries[_currentPage].detail.id == entry.detail.id) {
+      // A late final update from the departing episode must not replace this
+      // drama's newly selected episode in the shared watch history.
       return;
     }
-    _entries[_currentPage].resumePositionMs = _currentPositionMs;
     unawaited(
       _recordHistory(
-        _entries[_currentPage],
-        positionMs: _currentPositionMs,
-        durationMs: _currentDurationMs,
+        entry,
+        positionMs: position.inMilliseconds,
+        durationMs: duration.inMilliseconds,
       ),
     );
   }
@@ -380,11 +390,9 @@ class _ShortVideoPageState extends State<ShortVideoPage>
           entry.episode.number == selected,
     );
     if (target < 0) return;
-    await _pageController.animateToPage(
-      target,
-      duration: const Duration(milliseconds: 280),
-      curve: Curves.easeOutCubic,
-    );
+    // A chosen episode is a direct destination. Scrolling across dozens of pages
+    // starts their players and writes intermediate episodes into watch history.
+    _pageController.jumpToPage(target);
   }
 
   @override
@@ -474,7 +482,8 @@ class _ShortVideoPageState extends State<ShortVideoPage>
                         onSpeedLockChanged: (value) {
                           if (mounted) setState(() => _speedLocked = value);
                         },
-                        onProgress: _handleProgress,
+                        onProgress: (position, duration) =>
+                            _handleProgress(entry, position, duration),
                         onEnded: _playNext,
                       );
                     },
@@ -725,7 +734,7 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
   }
 
   void _syncPlaybackState() {
-    if (!_showVideo) _emitProgress(force: true);
+    if (!_showVideo) _emitProgress(force: true, allowInactive: true);
     if (_showVideo) {
       final controller = _controller;
       if (controller == null) {
@@ -775,8 +784,11 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
     }
   }
 
-  void _emitProgress({bool force = false}) {
-    if (!widget.active || _scrubbing || _seeking || _horizontalSeeking) {
+  void _emitProgress({bool force = false, bool allowInactive = false}) {
+    if ((!widget.active && !allowInactive) ||
+        _scrubbing ||
+        _seeking ||
+        _horizontalSeeking) {
       return;
     }
     final controller = _controller;
@@ -793,6 +805,7 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
       _lastProgressAt = now;
       widget.onProgress(controller.position, duration);
     }
+    if (!widget.active) return;
     final lastNowPlaying = _lastNowPlayingAt;
     if (force ||
         lastNowPlaying == null ||
@@ -1050,8 +1063,12 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
   void _startHorizontalSeek(DragStartDetails details) {
     final controller = _controller;
     if (controller == null ||
+        !widget.active ||
         !controller.isReady ||
         controller.duration <= Duration.zero ||
+        _scrubbing ||
+        _seeking ||
+        _horizontalSeeking ||
         _speedBoosting) {
       return;
     }
@@ -1098,7 +1115,7 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
     if (!_horizontalSeeking) return;
     final resume = _resumeAfterHorizontalSeek;
     setState(() => _horizontalSeeking = false);
-    if (resume) unawaited(_controller?.play());
+    if (resume && widget.active) unawaited(_controller?.play());
   }
 
   Future<void> _commitHorizontalSeek(
@@ -1108,7 +1125,10 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
   ) async {
     try {
       await controller.seekTo(target);
-      if (resume && identical(controller, _controller)) {
+      if (mounted &&
+          widget.active &&
+          resume &&
+          identical(controller, _controller)) {
         await controller.play();
       }
     } catch (_) {

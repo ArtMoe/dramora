@@ -25,6 +25,7 @@ Future<void> showCommentsSheet(
     context,
     childScrollable: true,
     barrierColor: Colors.black.withValues(alpha: 0.42),
+    initialSize: MediaQuery.sizeOf(context).height < 500 ? 0.9 : 0.56,
     builder: (_) => CommentsSheet(
       videoId: videoId,
       episode: episode,
@@ -223,7 +224,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
             height: 54,
             child: Center(
               child: Text(
-                '${_total > 0 ? formatCount(_total) : ''}条评论',
+                '${formatCount(_total)}条评论',
                 style: TextStyle(
                   color: context.hgOnSurface,
                   fontSize: 16,

@@ -7,6 +7,7 @@ import 'package:guomu/hg/pages/detail_page.dart';
 import 'package:guomu/hg/pages/home_page.dart';
 import 'package:guomu/hg/widgets/hg_components.dart';
 import 'package:guomu/hg/widgets/hg_pressable.dart';
+import 'package:guomu/hg/utils/hg_download_manager.dart';
 import 'package:guomu/hg/widgets/secure_cover.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -82,11 +83,16 @@ void main() {
         SharedPreferences.setMockInitialValues({});
         final api = _HomeApi();
         final auth = AuthController(api, await SharedPreferences.getInstance());
+        final downloads = HgDownloadManager(
+          api,
+          await SharedPreferences.getInstance(),
+        );
         await tester.pumpWidget(
           MultiProvider(
             providers: [
               Provider<HgApi>.value(value: api),
               ChangeNotifierProvider.value(value: auth),
+              ChangeNotifierProvider.value(value: downloads),
             ],
             child: const MaterialApp(home: Scaffold(body: HomePage())),
           ),

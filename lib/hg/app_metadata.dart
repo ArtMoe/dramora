@@ -1,14 +1,36 @@
 abstract final class HgAppMetadata {
-  static const String version = '1.4.21';
-  static const String buildNumber = '26';
-  static const String versionLabel = 'v1.4.21 (26)';
-  static const String releaseTitle = '加载布局适配修正版';
+  static const String version = '1.4.22';
+  static const String buildNumber = '27';
+  static const String versionLabel = 'v1.4.22 (27)';
+  static const String releaseTitle = '选集、续播与缓存体验优化版';
   static const List<String> releaseNotes = [
-    '修复宽屏、小窗口和横屏下部分加载骨架超出页面的问题。',
-    '加载占位内容可在有限高度内滚动，继续保持统一的卡片比例。',
+    '远距离选集直接切到目标集，不再滑过并播放中间剧集。',
+    '横屏选集与评论面板适配有限高度，当前剧集自动定位，选集触控区域更大。',
+    '修复快进后切集可能出现旧视频继续播放，以及旧进度覆盖当前集记录的问题。',
+    '下载页继续本机记录的集数与进度，详情页同步显示正在缓存、已缓存状态。',
+    '删除单部缓存增加确认，修复等待状态进度条持续转动和小封面占位溢出。',
   ];
 
   static const List<HgReleaseRecord> releaseHistory = [
+    HgReleaseRecord(
+      version: 'v1.4.22',
+      buildNumber: '27',
+      date: '2026-11-21',
+      title: '选集、续播与缓存体验优化版',
+      features: [],
+      improvements: [
+        '远距离选集直接到达目标集，选集列表自动显示当前集所在范围。',
+        '选集与评论面板适配横屏，选集按钮更易点按，简介与内容可连贯滚动。',
+        '详情页同步显示缓存状态，已有任务可直接进入下载管理。',
+        '删除单部缓存前确认，空内容与错误提示适配较矮窗口。',
+      ],
+      fixes: [
+        '修复快进尚未完成时切集，旧视频可能继续播放的问题。',
+        '修复切集后的延迟进度更新覆盖当前剧集观看记录的问题。',
+        '修复下载页播放总是跳到最后缓存一集，现统一读取本机续播记录。',
+        '修复等待下载时进度条持续转动、小尺寸封面占位溢出，以及零评论数量缺失。',
+      ],
+    ),
     HgReleaseRecord(
       version: 'v1.4.21',
       buildNumber: '26',

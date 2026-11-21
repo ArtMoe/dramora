@@ -22,6 +22,7 @@ class HgDownloadManager extends ChangeNotifier {
   final List<HgDownloadTask> _tasks = [];
   Future<void> _queue = Future<void>.value();
   bool _restored = false;
+  Future<void>? _restoring;
 
   Future<void> Function(HgDownloadTask task, int newEpisode)? onUpdateFound;
   Future<void> Function(HgDownloadTask task)? onDownloadCompleted;
@@ -41,9 +42,15 @@ class HgDownloadManager extends ChangeNotifier {
     return taskFor(videoId)?.episodes.containsKey(episode) ?? false;
   }
 
-  Future<void> restore() async {
-    if (_restored) return;
-    _restored = true;
+  Future<void> restore() {
+    if (_restored) return Future<void>.value();
+    return _restoring ??= _restore();
+  }
+
+  Future<void> _restore() async {
+    // localPlaylist may be called from a player's initState. Notify only after
+    // that build has finished, and let concurrent callers await the same load.
+    await Future<void>.value();
     final restored = HgDownloadTask.decodeList(_prefs.getString(_storageKey));
     for (final task in restored) {
       final episodes = <int, HgDownloadedEpisode>{};
@@ -54,6 +61,7 @@ class HgDownloadManager extends ChangeNotifier {
       }
       _tasks.add(task.copyWith(episodes: episodes));
     }
+    _restored = true;
     notifyListeners();
   }
 

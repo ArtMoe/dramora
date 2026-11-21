@@ -21,6 +21,7 @@ import '../widgets/hg_refresh_indicator.dart';
 import '../widgets/hg_share_sheet.dart';
 import '../widgets/secure_cover.dart';
 import 'creator_page.dart';
+import 'downloads_page.dart';
 import 'login_sheet.dart';
 import 'short_video_page.dart';
 import 'tag_feed_page.dart';
@@ -52,6 +53,7 @@ class _DramaDetailPageState extends State<DramaDetailPage> {
   bool _descriptionExpanded = false;
   HgPlaylistItem? _history;
   Object? _error;
+  bool _addingDownload = false;
 
   @override
   void initState() {
@@ -202,6 +204,7 @@ class _DramaDetailPageState extends State<DramaDetailPage> {
   }
 
   Future<void> _cacheAllDrama() async {
+    if (_addingDownload) return;
     if (kIsWeb) {
       final download = await showHgConfirmSheet(
         context,
@@ -223,12 +226,24 @@ class _DramaDetailPageState extends State<DramaDetailPage> {
       showHgSnack(context, '详情还在加载，请稍后再试');
       return;
     }
-    await HgNotificationService.requestPermissions();
-    if (!mounted) return;
     final manager = context.read<HgDownloadManager>();
-    await manager.startDramaDownload(detail);
-    if (mounted) {
-      showHgSnack(context, '已加入下载队列');
+    final existing = manager.taskFor(detail.id);
+    if (existing != null) {
+      await Navigator.of(
+        context,
+      ).push(MaterialPageRoute<void>(builder: (_) => const DownloadsPage()));
+      return;
+    }
+    setState(() => _addingDownload = true);
+    try {
+      await HgNotificationService.requestPermissions();
+      if (!mounted) return;
+      await manager.startDramaDownload(detail);
+      if (mounted) showHgSnack(context, '已加入下载队列');
+    } catch (error) {
+      if (mounted) showHgSnack(context, cleanError(error));
+    } finally {
+      if (mounted) setState(() => _addingDownload = false);
     }
   }
 
@@ -632,18 +647,39 @@ class _DramaDetailPageState extends State<DramaDetailPage> {
                               ],
                             ),
                           ),
-                          TextButton.icon(
-                            onPressed: _cacheAllDrama,
-                            style: TextButton.styleFrom(
-                              foregroundColor: context.hgOnSurface,
-                              overlayColor: Colors.transparent,
-                              minimumSize: const Size(0, 44),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                              ),
-                            ),
-                            icon: const Icon(Icons.download_rounded, size: 19),
-                            label: const Text('缓存全集'),
+                          Consumer<HgDownloadManager>(
+                            builder: (context, manager, _) {
+                              final task = manager.taskFor(widget.videoId);
+                              final label = _addingDownload
+                                  ? '正在加入'
+                                  : task == null
+                                  ? '缓存全集'
+                                  : task.isComplete
+                                  ? '已缓存'
+                                  : task.isDownloading
+                                  ? '正在缓存'
+                                  : '查看下载';
+                              return TextButton.icon(
+                                onPressed: _addingDownload
+                                    ? null
+                                    : _cacheAllDrama,
+                                style: TextButton.styleFrom(
+                                  foregroundColor: context.hgOnSurface,
+                                  overlayColor: Colors.transparent,
+                                  minimumSize: const Size(0, 44),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                  ),
+                                ),
+                                icon: Icon(
+                                  task?.isComplete == true
+                                      ? Icons.download_done_rounded
+                                      : Icons.download_rounded,
+                                  size: 19,
+                                ),
+                                label: Text(label),
+                              );
+                            },
                           ),
                         ],
                       ),

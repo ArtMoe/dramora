@@ -278,42 +278,49 @@ class _CoverPlaceholder extends StatelessWidget {
           colors: error ? colors.reversed.toList() : colors,
         ),
       ),
-      child: Center(
-        child: loading
-            ? Icon(
-                Icons.movie_filter_outlined,
-                color: (dark ? Colors.white : HgColors.ink).withValues(
-                  alpha: 0.24,
-                ),
-                size: 28,
-              )
-            : Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.movie_filter_rounded,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact =
+              constraints.maxWidth < 76 || constraints.maxHeight < 96;
+          final iconSize = constraints.biggest.shortestSide.clamp(12.0, 30.0);
+          return Center(
+            child: loading
+                ? Icon(
+                    Icons.movie_filter_outlined,
                     color: (dark ? Colors.white : HgColors.ink).withValues(
-                      alpha: 0.42,
+                      alpha: 0.24,
                     ),
-                    size: 30,
-                  ),
-                  if (title.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                      child: Text(
-                        title,
-                        maxLines: 2,
-                        textAlign: TextAlign.center,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: (dark ? Colors.white : HgColors.ink)
-                              .withValues(alpha: 0.58),
-                          fontSize: 11,
+                    size: iconSize,
+                  )
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.movie_filter_rounded,
+                        color: (dark ? Colors.white : HgColors.ink).withValues(
+                          alpha: 0.42,
                         ),
+                        size: iconSize,
                       ),
-                    ),
-                ],
-              ),
+                      if (title.isNotEmpty && !compact)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                          child: Text(
+                            title,
+                            maxLines: 2,
+                            textAlign: TextAlign.center,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: (dark ? Colors.white : HgColors.ink)
+                                  .withValues(alpha: 0.58),
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+          );
+        },
       ),
     );
   }

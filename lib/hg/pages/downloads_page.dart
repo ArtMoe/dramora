@@ -67,11 +67,6 @@ class DownloadsPage extends StatelessWidget {
                     MaterialPageRoute<void>(
                       builder: (_) => ShortVideoPage(
                         videoIds: [task.videoId],
-                        initialEpisode: task.episodes.isEmpty
-                            ? 1
-                            : task.episodes.keys.reduce(
-                                (a, b) => a > b ? a : b,
-                              ),
                         title: task.title,
                       ),
                     ),
@@ -154,7 +149,7 @@ class _DownloadTile extends StatelessWidget {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(99),
                       child: LinearProgressIndicator(
-                        value: progress <= 0 ? null : progress,
+                        value: progress,
                         minHeight: 5,
                         backgroundColor: context.hgSurfaceMuted,
                         color: HgColors.orange,
@@ -191,7 +186,17 @@ class _DownloadTile extends StatelessWidget {
                         const Spacer(),
                         IconButton(
                           tooltip: '删除缓存',
-                          onPressed: () => manager.remove(task.videoId),
+                          onPressed: () async {
+                            final remove = await showHgConfirmSheet(
+                              context,
+                              title: '删除这部短剧的缓存？',
+                              message: '会删除“${task.title}”的离线文件，观看记录仍会保留。',
+                              confirmLabel: '删除缓存',
+                              destructive: true,
+                              icon: Icons.delete_outline_rounded,
+                            );
+                            if (remove) await manager.remove(task.videoId);
+                          },
                           icon: Icon(
                             Icons.delete_outline_rounded,
                             color: context.hgMuted,

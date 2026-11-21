@@ -660,45 +660,54 @@ class HgEmptyState extends StatelessWidget {
     final muted = Theme.of(
       context,
     ).colorScheme.onSurface.withValues(alpha: 0.5);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(24),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxHeight < 260;
+        return Center(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.all(compact ? 16 : 32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: compact ? 40 : 72,
+                    height: compact ? 40 : 72,
+                    decoration: BoxDecoration(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(compact ? 14 : 24),
+                    ),
+                    child: Icon(icon, color: muted, size: compact ? 23 : 32),
+                  ),
+                  SizedBox(height: compact ? 10 : 18),
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleMedium,
+                    textAlign: TextAlign.center,
+                  ),
+                  if (message != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      message!,
+                      style: TextStyle(color: muted, fontSize: 13),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                  if (actionLabel != null) ...[
+                    SizedBox(height: compact ? 10 : 18),
+                    FilledButton.tonal(
+                      onPressed: onAction,
+                      child: Text(actionLabel!),
+                    ),
+                  ],
+                ],
               ),
-              child: Icon(icon, color: muted, size: 32),
             ),
-            const SizedBox(height: 18),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.titleMedium,
-              textAlign: TextAlign.center,
-            ),
-            if (message != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                message!,
-                style: TextStyle(color: muted, fontSize: 13),
-                textAlign: TextAlign.center,
-              ),
-            ],
-            if (actionLabel != null) ...[
-              const SizedBox(height: 18),
-              FilledButton.tonal(
-                onPressed: onAction,
-                child: Text(actionLabel!),
-              ),
-            ],
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

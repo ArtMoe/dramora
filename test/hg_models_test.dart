@@ -441,6 +441,30 @@ void main() {
     expect(find.byType(HgLoading), findsOneWidget);
   });
 
+  testWidgets(
+    'empty and error states keep their action reachable in short panels',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 150));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      var retried = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HgErrorState(
+              error: '网络暂时不可用，请稍后重新加载。',
+              onRetry: () => retried = true,
+            ),
+          ),
+        ),
+      );
+      expect(tester.takeException(), isNull);
+      await tester.ensureVisible(find.text('重新加载'));
+      await tester.tap(find.text('重新加载'));
+      expect(retried, isTrue);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   for (final size in [
     const Size(560, 740),
     const Size(844, 360),
