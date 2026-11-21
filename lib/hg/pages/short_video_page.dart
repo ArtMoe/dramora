@@ -12,6 +12,7 @@ import '../app_flags.dart';
 import '../models/hg_models.dart';
 import '../theme/hg_theme.dart';
 import '../utils/hg_format.dart';
+import '../utils/hg_player_gestures.dart';
 import '../services/hg_live_activity_service.dart';
 import '../services/hg_now_playing_service.dart';
 import '../models/hg_download_models.dart';
@@ -663,6 +664,10 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
   DateTime? _lastNowPlayingAt;
   bool _scrubbing = false;
   bool _seeking = false;
+  bool _horizontalSeeking = false;
+  bool _resumeAfterHorizontalSeek = false;
+  double _horizontalSeekDelta = 0;
+  Duration _horizontalSeekStart = Duration.zero;
   Duration _scrubPosition = Duration.zero;
 
   @override
@@ -771,7 +776,9 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
   }
 
   void _emitProgress({bool force = false}) {
-    if (!widget.active || _scrubbing || _seeking) return;
+    if (!widget.active || _scrubbing || _seeking || _horizontalSeeking) {
+      return;
+    }
     final controller = _controller;
     if (controller == null || !controller.isReady) return;
     final duration = controller.duration;
@@ -1040,6 +1047,80 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
     }
   }
 
+  void _startHorizontalSeek(DragStartDetails details) {
+    final controller = _controller;
+    if (controller == null ||
+        !controller.isReady ||
+        controller.duration <= Duration.zero ||
+        _speedBoosting) {
+      return;
+    }
+    HapticFeedback.selectionClick();
+    _horizontalSeekDelta = 0;
+    _horizontalSeekStart = controller.position;
+    _resumeAfterHorizontalSeek = controller.isPlaying;
+    setState(() {
+      _horizontalSeeking = true;
+      _scrubPosition = _horizontalSeekStart;
+    });
+    if (_resumeAfterHorizontalSeek) unawaited(controller.pause());
+  }
+
+  void _updateHorizontalSeek(DragUpdateDetails details) {
+    final controller = _controller;
+    if (!_horizontalSeeking || controller == null) return;
+    final width = context.size?.width ?? MediaQuery.sizeOf(context).width;
+    _horizontalSeekDelta += details.primaryDelta ?? 0;
+    setState(() {
+      _scrubPosition = hgHorizontalSeekTarget(
+        start: _horizontalSeekStart,
+        duration: controller.duration,
+        deltaPixels: _horizontalSeekDelta,
+        width: width,
+      );
+    });
+  }
+
+  void _finishHorizontalSeek(DragEndDetails details) {
+    final controller = _controller;
+    if (!_horizontalSeeking || controller == null) return;
+    final target = _scrubPosition;
+    final resume = _resumeAfterHorizontalSeek;
+    HapticFeedback.selectionClick();
+    setState(() {
+      _horizontalSeeking = false;
+      _seeking = true;
+    });
+    unawaited(_commitHorizontalSeek(controller, target, resume));
+  }
+
+  void _cancelHorizontalSeek() {
+    if (!_horizontalSeeking) return;
+    final resume = _resumeAfterHorizontalSeek;
+    setState(() => _horizontalSeeking = false);
+    if (resume) unawaited(_controller?.play());
+  }
+
+  Future<void> _commitHorizontalSeek(
+    HgVideoController controller,
+    Duration target,
+    bool resume,
+  ) async {
+    try {
+      await controller.seekTo(target);
+      if (resume && identical(controller, _controller)) {
+        await controller.play();
+      }
+    } catch (_) {
+      if (mounted && widget.active) showHgSnack(context, '暂时无法跳转，请重试');
+    } finally {
+      if (mounted && identical(controller, _controller)) {
+        setState(() => _seeking = false);
+        _emitProgress(force: true);
+      }
+    }
+  }
+
   Future<void> _startBoost(LongPressStartDetails details) async {
     final width = context.size?.width ?? MediaQuery.sizeOf(context).width;
     final x = details.localPosition.dx;
@@ -1214,12 +1295,12 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
                     AnimatedBuilder(
                       animation: _controller!,
                       builder: (context, _) => HgPlayerSeekBar(
-                        position: (_scrubbing || _seeking)
+                        position: (_scrubbing || _seeking || _horizontalSeeking)
                             ? _scrubPosition
                             : _controller!.position,
                         duration: _controller!.duration,
                         scrubbing: _scrubbing,
-                        seeking: _seeking,
+                        seeking: _seeking || _horizontalSeeking,
                         buffered: _controller!.bufferedPosition,
                         showTimeLabels: true,
                         onScrubStart: _startScrubbing,
@@ -1345,6 +1426,10 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: _togglePlayback,
+              onHorizontalDragStart: _startHorizontalSeek,
+              onHorizontalDragUpdate: _updateHorizontalSeek,
+              onHorizontalDragEnd: _finishHorizontalSeek,
+              onHorizontalDragCancel: _cancelHorizontalSeek,
               onLongPressStart: _startBoost,
               onLongPressMoveUpdate: _moveBoost,
               onLongPressEnd: (_) => _endBoost(),
@@ -1444,12 +1529,15 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
                                 AnimatedBuilder(
                                   animation: _controller!,
                                   builder: (context, child) => HgPlayerSeekBar(
-                                    position: (_scrubbing || _seeking)
+                                    position:
+                                        (_scrubbing ||
+                                            _seeking ||
+                                            _horizontalSeeking)
                                         ? _scrubPosition
                                         : _controller!.position,
                                     duration: _controller!.duration,
                                     scrubbing: _scrubbing,
-                                    seeking: _seeking,
+                                    seeking: _seeking || _horizontalSeeking,
                                     buffered: _controller!.bufferedPosition,
                                     showTimeLabels: false,
                                     onScrubStart: _startScrubbing,
@@ -1475,6 +1563,23 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
             ),
           if (isLandscape)
             _buildLandscapeChrome(context, liked: liked, favorite: favorite),
+          if (_horizontalSeeking && _controller != null)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: Center(
+                  child: _HorizontalSeekHud(
+                    target: _scrubPosition,
+                    total: _controller!.duration,
+                    forward: _horizontalSeekDelta >= 0,
+                    delta: Duration(
+                      milliseconds:
+                          _scrubPosition.inMilliseconds -
+                          _horizontalSeekStart.inMilliseconds,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           if (_speedBoosting)
             Positioned(
               top: MediaQuery.paddingOf(context).top + 70,
@@ -1502,11 +1607,80 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
                   busy:
                       !_scrubbing &&
                       (_seeking ||
-                          (_controller!.isPlaying && _controller!.isBuffering)),
-                  paused: !_controller!.isPlaying && !_scrubbing && !_seeking,
+                          (!_horizontalSeeking &&
+                              _controller!.isPlaying &&
+                              _controller!.isBuffering)),
+                  paused:
+                      !_controller!.isPlaying &&
+                      !_scrubbing &&
+                      !_seeking &&
+                      !_horizontalSeeking,
                 ),
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HorizontalSeekHud extends StatelessWidget {
+  const _HorizontalSeekHud({
+    required this.target,
+    required this.total,
+    required this.forward,
+    required this.delta,
+  });
+
+  final Duration target;
+  final Duration total;
+  final bool forward;
+  final Duration delta;
+
+  @override
+  Widget build(BuildContext context) {
+    final seconds = (delta.inMilliseconds / 1000).round();
+    final amount = '${seconds >= 0 ? '+' : '-'}${seconds.abs()} 秒';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            forward ? Icons.fast_forward_rounded : Icons.fast_rewind_rounded,
+            color: Colors.white,
+            size: 22,
+          ),
+          const SizedBox(width: 10),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${formatDuration(target.inSeconds)} / ${formatDuration(total.inSeconds)}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                amount,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.65),
+                  fontSize: 10.5,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );

@@ -1,16 +1,28 @@
 abstract final class HgAppMetadata {
-  static const String version = '1.4.11';
-  static const String buildNumber = '16';
-  static const String versionLabel = 'v1.4.11 (16)';
-  static const String releaseTitle = '首页顺滑与后台节能版';
+  static const String version = '1.4.12';
+  static const String buildNumber = '17';
+  static const String versionLabel = 'v1.4.12 (17)';
+  static const String releaseTitle = '播放器手势增强版';
   static const List<String> releaseNotes = [
-    '首页幻灯片首张与指示点对齐，切换动画更短更自然。',
-    '手动滑动幻灯片时会暂停自动轮播，松手后重新计时，不再与自动切页抢动效。',
-    '离开首页或其他底部页面后自动停止不可见页面的动画，减少后台卡顿与耗电。',
-    '底部导航切换增加轻触反馈，页面切换更接近原生应用。',
+    '播放画面支持左右拖动预览进度，不必再精准点中底部进度条。',
+    '拖动时暂停画面并显示目标时间、快进或后退秒数，松手立即跳转。',
+    '正在播放时跳转完成后自动继续播放；暂停状态不会擅自恢复播放。',
+    '竖屏、横屏和清屏状态均可使用横向拖动，边界会自动限制在片头与片尾。',
   ];
 
   static const List<HgReleaseRecord> releaseHistory = [
+    HgReleaseRecord(
+      version: 'v1.4.12',
+      buildNumber: '17',
+      date: '2026-11-21',
+      title: '播放器手势增强版',
+      features: ['播放画面支持横向拖动预览，并在松手后跳转到目标位置。', '播放中跳转后自动续播，拖动过程显示目标时间与相对变化秒数。'],
+      improvements: [
+        '横向拖动可与底部进度条、纵向切集和长按倍速共同使用。',
+        '竖屏、横屏及清屏状态统一支持拖动预览，目标位置不会越过片头或片尾。',
+      ],
+      fixes: [],
+    ),
     HgReleaseRecord(
       version: 'v1.4.11',
       buildNumber: '16',
