@@ -21,6 +21,8 @@ import '../widgets/hg_components.dart';
 import '../utils/hg_player_display.dart';
 import '../widgets/hg_share_sheet.dart';
 import '../widgets/hg_video_controller.dart';
+import '../widgets/hg_player_seek_bar.dart';
+import '../widgets/hg_playback_feedback.dart';
 import '../widgets/secure_cover.dart';
 import 'comments_sheet.dart';
 import 'episodes_sheet.dart';
@@ -650,6 +652,9 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
   HgVideoController? _controller;
   bool _loading = true;
   bool _initializing = false;
+  bool _recovering = false;
+  int _runtimeRetries = 0;
+  Duration? _recoveryPosition;
   bool _speedBoosting = false;
   bool? _speedLockInGesture;
   String? _error;
@@ -728,32 +733,41 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
     }
   }
 
-  Future<void> _handleControllerChanged() async {
+  void _handleControllerChanged() {
     final controller = _controller;
     if (controller != null && controller.hasError) {
-      final message = _friendlyPlaybackError(
-        controller.errorDescription ?? '视频源加载失败',
-      );
-      _controller = null;
-      controller.removeListener(_handleControllerChanged);
-      controller.dispose();
-      if (!widget.active) return;
-      if (mounted) {
-        setState(() {
-          _loading = true;
-          _error = null;
-        });
-      }
-      await _initializePlayback();
-      if (mounted && _controller == null && _error == null) {
-        setState(() {
-          _loading = false;
-          _error = message;
-        });
-      }
+      if (_initializing || _recovering) return;
+      _recovering = true;
+      // ChangeNotifier must finish notifying before its controller is disposed.
+      scheduleMicrotask(() => _recoverPlayback(controller));
       return;
     }
     _emitProgress();
+  }
+
+  Future<void> _recoverPlayback(HgVideoController controller) async {
+    try {
+      if (!mounted || !identical(controller, _controller)) return;
+      final message = _friendlyPlaybackError(
+        controller.errorDescription ?? '视频源加载失败',
+      );
+      _recoveryPosition = controller.position;
+      _controller = null;
+      controller.removeListener(_handleControllerChanged);
+      controller.dispose();
+      setState(() {
+        _loading = widget.active && _runtimeRetries == 0;
+        _error = _loading ? null : message;
+        _scrubbing = false;
+        _seeking = false;
+      });
+      if (_loading) {
+        _runtimeRetries++;
+        await _initializePlayback();
+      }
+    } finally {
+      _recovering = false;
+    }
   }
 
   void _emitProgress({bool force = false}) {
@@ -830,6 +844,12 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
   Future<void> _initializePlayback() async {
     if (_initializing || _controller != null) return;
     _initializing = true;
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final downloads = context.read<HgDownloadManager>();
       final api = context.read<HgApi>();
@@ -873,7 +893,9 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
           }
           _controller = controller;
           controller.addListener(_handleControllerChanged);
-          final resume = Duration(milliseconds: widget.resumePositionMs);
+          final resume =
+              _recoveryPosition ??
+              Duration(milliseconds: widget.resumePositionMs);
           if (resume > const Duration(seconds: 1) &&
               controller.duration >
                   resume + const Duration(milliseconds: 800)) {
@@ -882,15 +904,24 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
           await controller.setPlaybackSpeed(
             widget.speedLocked ? 2 : widget.playbackSpeed,
           );
+          if (!mounted) return;
           if (_showVideo) {
             await controller.play();
           } else {
             await controller.pause();
           }
+          if (!mounted) return;
+          if (controller.hasError) {
+            throw StateError(controller.errorDescription ?? '视频加载失败');
+          }
           setState(() => _loading = false);
           _emitProgress(force: true);
           return;
         } catch (error) {
+          if (identical(_controller, controller)) {
+            _controller = null;
+            controller?.removeListener(_handleControllerChanged);
+          }
           controller?.dispose();
           lastError = error;
           final isNetworkSource = localPath == null;
@@ -943,6 +974,7 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
     final controller = _controller;
     if (controller == null) {
       if (_error != null) {
+        _runtimeRetries = 0;
         setState(() {
           _loading = true;
           _error = null;
@@ -1004,7 +1036,7 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
     } catch (_) {
       if (mounted && widget.active) showHgSnack(context, '暂时无法跳转，请重试');
     } finally {
-      if (mounted) {
+      if (mounted && identical(controller, _controller)) {
         setState(() => _seeking = false);
         _emitProgress(force: true);
       }
@@ -1107,6 +1139,8 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
   }) {
     final top = MediaQuery.paddingOf(context).top;
     final bottom = MediaQuery.paddingOf(context).bottom;
+    final safeLeft = MediaQuery.paddingOf(context).left;
+    final safeRight = MediaQuery.paddingOf(context).right;
     return AnimatedOpacity(
       opacity: widget.chromeVisible ? 1 : 0,
       duration: const Duration(milliseconds: 200),
@@ -1131,8 +1165,8 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
             ),
             Positioned(
               top: top + 8,
-              left: 12,
-              right: 12,
+              left: safeLeft + 12,
+              right: safeRight + 12,
               child: Row(
                 children: [
                   _VideoCircleButton(
@@ -1156,14 +1190,14 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
                     ),
                   ),
                   _VideoCircleButton(
-                    icon: Icons.ios_share_rounded,
-                    onTap: _share,
+                    icon: Icons.playlist_play_rounded,
+                    onTap: widget.onOpenEpisodes,
                   ),
                 ],
               ),
             ),
             Positioned(
-              left: 16,
+              left: safeLeft + 16,
               top: top + 68,
               child: _VideoCircleButton(
                 icon: _controller != null && _controller!.volume <= 0
@@ -1173,8 +1207,8 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
               ),
             ),
             Positioned(
-              left: 12,
-              right: 12,
+              left: safeLeft + 12,
+              right: safeRight + 12,
               bottom: 28 + bottom,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -1182,12 +1216,14 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
                   if (_controller != null)
                     AnimatedBuilder(
                       animation: _controller!,
-                      builder: (context, _) => _SeekBar(
-                        position: _scrubbing
+                      builder: (context, _) => HgPlayerSeekBar(
+                        position: (_scrubbing || _seeking)
                             ? _scrubPosition
                             : _controller!.position,
                         duration: _controller!.duration,
                         scrubbing: _scrubbing,
+                        seeking: _seeking,
+                        buffered: _controller!.bufferedPosition,
                         showTimeLabels: true,
                         onScrubStart: _startScrubbing,
                         onScrubUpdate: _updateScrubbing,
@@ -1232,21 +1268,27 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
                       const Spacer(),
                       GestureDetector(
                         onTap: widget.onCycleSpeed,
-                        child: Text(
-                          _speedText(
-                            widget.speedLocked ? 2 : widget.playbackSpeed,
-                          ),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
+                        child: SizedBox(
+                          height: 48,
+                          width: 48,
+                          child: Center(
+                            child: Text(
+                              _speedText(
+                                widget.speedLocked ? 2 : widget.playbackSpeed,
+                              ),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 16),
+                      const SizedBox(width: 8),
                       _VideoCircleButton(
                         icon: Icons.fullscreen_exit_rounded,
-                        onTap: () => unawaited(HgPlayerDisplay.reset()),
+                        onTap: () => unawaited(HgPlayerDisplay.exitLandscape()),
                       ),
                     ],
                   ),
@@ -1317,7 +1359,10 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
             Center(
               child: _InlinePlaybackError(
                 error: _error!,
-                onRetry: _initializePlayback,
+                onRetry: () {
+                  _runtimeRetries = 0;
+                  unawaited(_initializePlayback());
+                },
               ),
             ),
           if (!isLandscape)
@@ -1401,12 +1446,14 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
                               if (_controller != null) ...[
                                 AnimatedBuilder(
                                   animation: _controller!,
-                                  builder: (context, child) => _SeekBar(
-                                    position: _scrubbing
+                                  builder: (context, child) => HgPlayerSeekBar(
+                                    position: (_scrubbing || _seeking)
                                         ? _scrubPosition
                                         : _controller!.position,
                                     duration: _controller!.duration,
                                     scrubbing: _scrubbing,
+                                    seeking: _seeking,
+                                    buffered: _controller!.bufferedPosition,
                                     showTimeLabels: false,
                                     onScrubStart: _startScrubbing,
                                     onScrubUpdate: _updateScrubbing,
@@ -1450,55 +1497,27 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
               right: 16,
               child: _LandscapeEntry(onTap: _enterLandscape),
             ),
-          if (_controller != null && !_loading)
+          if (_controller != null && !_loading && widget.active)
             IgnorePointer(
               child: AnimatedBuilder(
                 animation: _controller!,
-                builder: (context, child) {
-                  if (_controller!.isPlaying ||
-                      !widget.chromeVisible ||
-                      _scrubbing ||
-                      _seeking) {
-                    return const SizedBox.shrink();
-                  }
-                  return const Center(
-                    child: Icon(
-                      Icons.play_arrow_rounded,
-                      color: Colors.white,
-                      size: 54,
-                      shadows: [Shadow(color: Colors.black54, blurRadius: 14)],
-                    ),
-                  );
-                },
+                builder: (context, child) => HgPlaybackFeedback(
+                  busy:
+                      !_scrubbing &&
+                      (_seeking ||
+                          (_controller!.isPlaying && _controller!.isBuffering)),
+                  paused:
+                      !_controller!.isPlaying &&
+                      widget.chromeVisible &&
+                      !_scrubbing &&
+                      !_seeking,
+                ),
               ),
             ),
         ],
       ),
     );
   }
-}
-
-class _SeekBar extends StatefulWidget {
-  const _SeekBar({
-    required this.position,
-    required this.duration,
-    required this.scrubbing,
-    required this.showTimeLabels,
-    required this.onScrubStart,
-    required this.onScrubUpdate,
-    required this.onScrubEnd,
-  });
-
-  final Duration position;
-  final Duration duration;
-  final bool scrubbing;
-  final bool showTimeLabels;
-  final ValueChanged<double> onScrubStart;
-  final ValueChanged<double> onScrubUpdate;
-  final ValueChanged<double> onScrubEnd;
-
-  @override
-  State<_SeekBar> createState() => _SeekBarState();
 }
 
 class _SpeedLockHint extends StatelessWidget {
@@ -1538,155 +1557,6 @@ class _SpeedLockHint extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _SeekBarState extends State<_SeekBar> {
-  double? _dragFraction;
-
-  double get _currentFraction {
-    final durationMs = widget.duration.inMilliseconds;
-    if (durationMs <= 0) return 0;
-    return (widget.position.inMilliseconds / durationMs).clamp(0.0, 1.0);
-  }
-
-  @override
-  void didUpdateWidget(covariant _SeekBar oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.scrubbing && !widget.scrubbing) {
-      _dragFraction = null;
-    }
-  }
-
-  String _time(Duration value) {
-    final seconds = value.inSeconds.clamp(0, 99 * 60 * 60);
-    final minutes = (seconds ~/ 60).toString().padLeft(2, '0');
-    final rest = (seconds % 60).toString().padLeft(2, '0');
-    return '$minutes:$rest';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final fraction = (_dragFraction ?? _currentFraction).clamp(0.0, 1.0);
-    final durationMs = widget.duration.inMilliseconds;
-    final previewPosition = Duration(
-      milliseconds: (durationMs * fraction).round(),
-    );
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        final trackWidth = (width - 16).clamp(1.0, width);
-        final bubbleLeft = (8 + trackWidth * fraction - 29).clamp(
-          0.0,
-          width - 58,
-        );
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (widget.showTimeLabels)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 1),
-                child: Row(
-                  children: [
-                    Text(
-                      _time(previewPosition),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10.5,
-                        fontFeatures: [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      _time(widget.duration),
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 10.5,
-                        fontFeatures: [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            SizedBox(
-              height: widget.showTimeLabels ? 38 : 42,
-              child: Stack(
-                clipBehavior: Clip.none,
-                alignment: Alignment.center,
-                children: [
-                  SliderTheme(
-                    data: SliderTheme.of(context).copyWith(
-                      trackHeight: 3.5,
-                      activeTrackColor: widget.scrubbing
-                          ? Colors.white
-                          : HgColors.orange,
-                      inactiveTrackColor: Colors.white.withValues(alpha: 0.22),
-                      thumbColor: Colors.white,
-                      overlayColor: Colors.transparent,
-                      thumbShape: RoundSliderThumbShape(
-                        enabledThumbRadius: widget.scrubbing ? 6.5 : 4.5,
-                        elevation: 0,
-                        pressedElevation: 0,
-                      ),
-                      overlayShape: const RoundSliderOverlayShape(
-                        overlayRadius: 0,
-                      ),
-                      tickMarkShape: SliderTickMarkShape.noTickMark,
-                      showValueIndicator: ShowValueIndicator.never,
-                      trackShape: const RoundedRectSliderTrackShape(),
-                    ),
-                    child: Slider(
-                      value: fraction,
-                      min: 0,
-                      max: 1,
-                      allowedInteraction: SliderInteraction.tapAndSlide,
-                      onChangeStart: (value) {
-                        setState(() => _dragFraction = value);
-                        widget.onScrubStart(value);
-                      },
-                      onChanged: (value) {
-                        setState(() => _dragFraction = value);
-                        widget.onScrubUpdate(value);
-                      },
-                      onChangeEnd: (value) {
-                        setState(() => _dragFraction = value);
-                        widget.onScrubEnd(value);
-                      },
-                    ),
-                  ),
-                  if (widget.scrubbing)
-                    Positioned(
-                      left: bubbleLeft,
-                      top: -18,
-                      child: IgnorePointer(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 9,
-                            vertical: 5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.78),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            _time(previewPosition),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w700,
-                              fontFeatures: [FontFeature.tabularFigures()],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ],
-        );
-      },
     );
   }
 }
@@ -1806,7 +1676,7 @@ class _LandscapeAction extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.only(right: 18),
+        padding: const EdgeInsets.only(right: 18, top: 12, bottom: 12),
         child: Row(
           children: [
             Icon(icon, color: color, size: 23),
@@ -2035,8 +1905,8 @@ class _VideoCircleButton extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: SizedBox(
-        width: 39,
-        height: 39,
+        width: 48,
+        height: 48,
         child: Icon(
           icon,
           color: Colors.white,

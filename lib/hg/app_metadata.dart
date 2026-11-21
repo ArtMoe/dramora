@@ -1,16 +1,33 @@
 abstract final class HgAppMetadata {
-  static const String version = '1.4.8';
-  static const String buildNumber = '13';
-  static const String versionLabel = 'v1.4.8 (13)';
-  static const String releaseTitle = '播放手感与细节打磨版';
+  static const String version = '1.4.9';
+  static const String buildNumber = '14';
+  static const String versionLabel = 'v1.4.9 (14)';
+  static const String releaseTitle = '流畅播放与横屏体验版';
   static const List<String> releaseNotes = [
-    '播放页支持跟随设备方向自动进入横屏，返回竖屏后自动恢复普通布局。',
-    '统一播放器控制层，暂停按钮、全屏按钮、进度条位置和提示样式更接近原生短视频体验。',
-    '半屏面板移除重复关闭按钮，保留系统拖动条和下滑关闭手势。',
-    '优化全局轻提示样式、评论面板和下载入口文案，减少网页感和开发者措辞。',
+    '拖动进度条后保持目标位置，避免跳转完成前回弹，并显示已缓冲范围。',
+    '播放缓冲超过短暂等待后显示提示，减少指示器频繁闪烁。',
+    '修复片尾提前切集和回拖后无法继续自动连播的问题。',
+    '横屏增加选集入口，适配屏幕安全区并扩大控制按钮触控范围。',
+    '优化播放中断恢复，保留中断位置，避免连续失败后反复重连。',
   ];
 
   static const List<HgReleaseRecord> releaseHistory = [
+    HgReleaseRecord(
+      version: 'v1.4.9',
+      buildNumber: '14',
+      date: '2026-11-21',
+      title: '流畅播放与横屏体验版',
+      features: ['进度条显示已缓冲范围，横屏播放器增加选集入口。'],
+      improvements: [
+        '拖动松手后保持目标位置直到跳转完成，进度条触控区域扩大至 48。',
+        '缓冲提示延迟出现，短暂加载不再反复闪烁。',
+        '横屏按钮避开屏幕缺口和系统安全区，退出全屏后保持沉浸播放。',
+      ],
+      fixes: [
+        '修复接近片尾时提前跳转下一集、回拖后自动连播失效的问题。',
+        '修复播放错误连续重试、重连后从头播放和初始化中离开页面的资源释放问题。',
+      ],
+    ),
     HgReleaseRecord(
       version: 'v1.4.8',
       buildNumber: '13',
@@ -48,7 +65,6 @@ abstract final class HgAppMetadata {
       fixes: [
         '修复切换数据源后内容缓存被清空、页面需要重新抓取的问题。',
         '修复请求失败后仍继续使用同一异常源、备用源无法及时接管的问题。',
-        '修复下载缓存路径异常导致离线播放失败的问题。',
       ],
     ),
     HgReleaseRecord(
