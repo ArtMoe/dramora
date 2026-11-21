@@ -25,6 +25,9 @@ Future<T?> showHgAdaptiveSheet<T>(
     isDismissible: isDismissible,
     enableDrag: false,
     showDragHandle: false,
+    sheetAnimationStyle: MediaQuery.disableAnimationsOf(context)
+        ? AnimationStyle.noAnimation
+        : null,
     backgroundColor: theme.colorScheme.surface,
     barrierColor: barrierColor ?? Colors.black.withValues(alpha: 0.42),
     elevation: 0,
@@ -176,20 +179,24 @@ class _HgAdaptiveSheetState extends State<HgAdaptiveSheet> {
         : const ClampingScrollPhysics(parent: AlwaysScrollableScrollPhysics());
     return PopScope(
       canPop: widget.isDismissible,
-      child: Align(
-        alignment: Alignment.bottomCenter,
-        child: AnimatedContainer(
-          key: const ValueKey('hg-adaptive-sheet'),
-          duration: _dragging
-              ? Duration.zero
-              : const Duration(milliseconds: 220),
-          curve: Curves.easeOutCubic,
-          height: height,
-          constraints: BoxConstraints(maxHeight: maxHeight),
-          child: Column(
-            children: [
-              if (widget.enableDrag)
-                GestureDetector(
+      child: AnimatedContainer(
+        key: const ValueKey('hg-adaptive-sheet'),
+        duration: _dragging || MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        width: double.infinity,
+        height: height,
+        constraints: BoxConstraints(maxHeight: maxHeight),
+        child: Column(
+          children: [
+            if (widget.enableDrag)
+              Semantics(
+                button: true,
+                label: '调整面板高度',
+                hint: '轻点展开或收起，也可上下拖动',
+                onTap: _toggle,
+                child: GestureDetector(
                   key: const ValueKey('hg-sheet-drag-handle'),
                   behavior: HitTestBehavior.opaque,
                   onVerticalDragStart: _startDrag,
@@ -214,18 +221,18 @@ class _HgAdaptiveSheetState extends State<HgAdaptiveSheet> {
                     ),
                   ),
                 ),
-              Expanded(
-                child: widget.childScrollable
-                    ? widget.child
-                    : SingleChildScrollView(
-                        physics: physics,
-                        keyboardDismissBehavior:
-                            ScrollViewKeyboardDismissBehavior.onDrag,
-                        child: widget.child,
-                      ),
               ),
-            ],
-          ),
+            Expanded(
+              child: widget.childScrollable
+                  ? widget.child
+                  : SingleChildScrollView(
+                      physics: physics,
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      child: widget.child,
+                    ),
+            ),
+          ],
         ),
       ),
     );

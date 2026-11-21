@@ -13,6 +13,7 @@ OUT_DIR="$ROOT/build/ios/ipa"
 PAYLOAD_DIR="$OUT_DIR/Payload"
 APP_COPY="$PAYLOAD_DIR/Runner.app"
 VERSION="$(sed -n 's/^version:[[:space:]]*//p' "$ROOT/pubspec.yaml" | cut -d+ -f1)"
+BUILD_NUMBER="$(sed -n 's/^version:[[:space:]]*//p' "$ROOT/pubspec.yaml" | cut -d+ -f2)"
 IPA_NAME="Guomu-${VERSION}-unsigned.ipa"
 
 # shellcheck source=/dev/null
@@ -58,6 +59,15 @@ if [[ -z "$APP_BUNDLE_NAME" || -z "$WIDGET_BUNDLE_NAME" ]]; then
   echo "IPA 包结构校验失败：主 App 或 Widget 扩展缺少非空 CFBundleName。" >&2
   exit 1
 fi
+
+for BUNDLE_INFO in "$APP_COPY/Info.plist" "$WIDGET_INFO"; do
+  BUNDLE_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$BUNDLE_INFO")"
+  BUNDLE_BUILD="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$BUNDLE_INFO")"
+  if [[ "$BUNDLE_VERSION" != "$VERSION" || "$BUNDLE_BUILD" != "$BUILD_NUMBER" ]]; then
+    echo "IPA 版本校验失败：主 App 与 Widget 必须均为 ${VERSION} (${BUILD_NUMBER})，实际为 ${BUNDLE_VERSION} (${BUNDLE_BUILD})。" >&2
+    exit 1
+  fi
+done
 
 APP_LIVE_ACTIVITIES="$(/usr/libexec/PlistBuddy -c 'Print :NSSupportsLiveActivities' "$APP_COPY/Info.plist" 2>/dev/null || true)"
 WIDGET_LIVE_ACTIVITIES="$(/usr/libexec/PlistBuddy -c 'Print :NSSupportsLiveActivities' "$WIDGET_INFO" 2>/dev/null || true)"

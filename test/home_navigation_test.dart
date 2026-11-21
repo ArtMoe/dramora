@@ -126,6 +126,16 @@ void main() {
         expect(detail.feedIds, entry.feed);
         expect(detail.heroTag, entry.tag);
         expect(tester.takeException(), isNull);
+        if (entry.id == 1) {
+          await tester.tap(find.text('追剧'));
+          await tester.pumpAndSettle();
+          expect(find.text('登录黄果'), findsOneWidget);
+          await tester.tapAt(const Offset(195, 80));
+          await tester.pumpAndSettle();
+          expect(find.text('登录黄果'), findsNothing);
+          expect(find.byType(DramaDetailPage), findsOneWidget);
+          expect(tester.takeException(), isNull);
+        }
         Navigator.of(tester.element(find.byType(DramaDetailPage))).pop();
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 400));

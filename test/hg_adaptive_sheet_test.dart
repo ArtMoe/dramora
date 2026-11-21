@@ -3,6 +3,45 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:guomu/hg/widgets/hg_adaptive_sheet.dart';
 
 void main() {
+  for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+    testWidgets('modal surface follows the panel bounds on $platform', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(platform: platform),
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => showHgAdaptiveSheet<void>(
+                  context,
+                  child: const Text('bounded content'),
+                ),
+                child: const Text('open bounded'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open bounded'));
+      await tester.pumpAndSettle();
+      final panel = tester.getRect(
+        find.byKey(const ValueKey('hg-adaptive-sheet')),
+      );
+      final surface = tester.getRect(find.byType(BottomSheet));
+      expect(surface.top, closeTo(panel.top, 1));
+      expect(surface.height, closeTo(panel.height, 1));
+      // The space above a half sheet belongs to its dismissible barrier.
+      await tester.tapAt(Offset(195, panel.top - 40));
+      await tester.pumpAndSettle();
+      expect(find.text('bounded content'), findsNothing);
+    });
+  }
+
   testWidgets('adaptive sheet expands and dismisses with drag gestures', (
     tester,
   ) async {
@@ -46,6 +85,44 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('sheet content'), findsNothing);
+  });
+
+  testWidgets('reduced motion also applies to route and handle resizing', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(disableAnimations: true),
+          child: child!,
+        ),
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showHgAdaptiveSheet<void>(
+                context,
+                child: const Text('motion content'),
+              ),
+              child: const Text('open motion'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open motion'));
+    await tester.pumpAndSettle();
+    final contentContext = tester.element(find.text('motion content'));
+    expect(ModalRoute.of(contentContext)!.transitionDuration, Duration.zero);
+    expect(find.bySemanticsLabel('调整面板高度'), findsOneWidget);
+    final panel = find.byKey(const ValueKey('hg-adaptive-sheet'));
+    final before = tester.getSize(panel).height;
+    await tester.tap(find.byKey(const ValueKey('hg-sheet-drag-handle')));
+    await tester.pump();
+    expect(tester.getSize(panel).height, greaterThan(before));
+    expect(tester.widget<AnimatedContainer>(panel).duration, Duration.zero);
+    expect(tester.takeException(), isNull);
+    semantics.dispose();
   });
 
   testWidgets('scrollable sheet content remains scrollable', (tester) async {

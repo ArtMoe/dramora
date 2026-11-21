@@ -1,17 +1,35 @@
 abstract final class HgAppMetadata {
-  static const String version = '1.4.19';
-  static const String buildNumber = '24';
-  static const String versionLabel = 'v1.4.19 (24)';
-  static const String releaseTitle = 'iOS 播放稳定性与首页优化版';
+  static const String version = '1.4.20';
+  static const String buildNumber = '25';
+  static const String versionLabel = 'v1.4.20 (25)';
+  static const String releaseTitle = '半屏交互与中文显示优化版';
   static const List<String> releaseNotes = [
-    '修复 iOS 在封面为空或加载失败时，进入视频播放可能闪退的问题。',
-    '优化实时活动兼容性，系统能力不可用时仍可正常观看视频。',
-    '首页精选推荐、最近上新、热播短剧改为跨区块去重，内容不再重复出现。',
-    '从首页不同区块进入详情后，播放列表会使用对应区块来源，接着浏览同一区块的短剧。',
-    '首页卡片打开详情时加入封面共享转场，页面衔接更接近原生短视频应用。',
+    '修复登录、评论等半屏面板上方出现大片空白，以及点击外部无法关闭的问题。',
+    '统一面板展开、收起和键盘避让，系统开启减少动态效果时同步简化动画。',
+    '修复部分环境中追剧等按钮中文显示为方框的问题。',
+    '顶部拖动横条补充读屏提示，支持轻点展开或收起面板。',
+    '修复 iOS 实时活动扩展版本未随应用更新的问题。',
+    '详情页缓存全集入口移至选集区，底部播放与追剧操作更清晰。',
   ];
 
   static const List<HgReleaseRecord> releaseHistory = [
+    HgReleaseRecord(
+      version: 'v1.4.20',
+      buildNumber: '25',
+      date: '2026-11-21',
+      title: '半屏交互与中文显示优化版',
+      features: [],
+      improvements: [
+        '半屏面板边界随拖动高度变化，上方始终保留遮罩与页面上下文。',
+        '面板动画跟随系统减少动态效果设置，顶部横条增加读屏操作提示。',
+        '缓存全集入口调整到选集区，底部只保留追剧与播放，移除重复入口。',
+      ],
+      fixes: [
+        '修复登录、评论等面板外层撑满屏幕，出现大片空白与遮罩无法点击的问题。',
+        '修复部分环境中追剧等按钮缺少中文字形而显示方框的问题。',
+        '修复 iOS 实时活动扩展版本与主程序不一致的问题。',
+      ],
+    ),
     HgReleaseRecord(
       version: 'v1.4.19',
       buildNumber: '24',

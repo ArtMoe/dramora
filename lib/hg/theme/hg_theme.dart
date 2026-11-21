@@ -41,6 +41,7 @@ ThemeData buildHgTheme(Brightness brightness) {
     useMaterial3: true,
     brightness: brightness,
     fontFamily: 'GuomuLatin',
+    fontFamilyFallback: const ['GuomuCJK'],
     colorScheme: scheme.copyWith(
       surface: dark ? HgColors.nightSurface : HgColors.paperSurface,
       onSurface: onSurface,
@@ -147,7 +148,7 @@ ThemeData buildHgTheme(Brightness brightness) {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
-            textStyle: const TextStyle(
+            textStyle: textTheme.labelLarge?.copyWith(
               fontWeight: FontWeight.w700,
               fontSize: 15,
             ),
@@ -163,7 +164,9 @@ ThemeData buildHgTheme(Brightness brightness) {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
-            textStyle: const TextStyle(fontWeight: FontWeight.w600),
+            textStyle: textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
           ).copyWith(
             overlayColor: const WidgetStatePropertyAll(Colors.transparent),
           ),
@@ -172,7 +175,9 @@ ThemeData buildHgTheme(Brightness brightness) {
       style:
           TextButton.styleFrom(
             foregroundColor: dark ? Colors.white : HgColors.ink,
-            textStyle: const TextStyle(fontWeight: FontWeight.w600),
+            textStyle: textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
           ).copyWith(
             overlayColor: const WidgetStatePropertyAll(Colors.transparent),
           ),
@@ -181,7 +186,7 @@ ThemeData buildHgTheme(Brightness brightness) {
       backgroundColor: dark ? const Color(0xFF202127) : const Color(0xFFF3F3F4),
       side: BorderSide.none,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      labelStyle: TextStyle(
+      labelStyle: textTheme.labelMedium?.copyWith(
         color: onSurface,
         fontSize: 12,
         fontWeight: FontWeight.w600,
@@ -195,7 +200,7 @@ ThemeData buildHgTheme(Brightness brightness) {
       indicatorColor: Colors.transparent,
       labelTextStyle: WidgetStateProperty.resolveWith((states) {
         final selected = states.contains(WidgetState.selected);
-        return TextStyle(
+        return textTheme.labelSmall?.copyWith(
           fontSize: 11,
           fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
           color: selected ? HgColors.orange : muted,

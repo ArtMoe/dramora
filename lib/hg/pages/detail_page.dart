@@ -1,10 +1,13 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../api/hg_api.dart';
+import '../app_flags.dart';
 import '../auth/app_controllers.dart';
 import '../models/hg_models.dart';
 import '../theme/hg_theme.dart';
@@ -169,14 +172,6 @@ class _DramaDetailPageState extends State<DramaDetailPage> {
                 },
               ),
               _DetailAction(
-                icon: Icons.download_for_offline_outlined,
-                title: '缓存全集',
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  unawaited(_cacheAllDrama());
-                },
-              ),
-              _DetailAction(
                 icon: Icons.play_arrow_rounded,
                 title: '从头播放',
                 onTap: () {
@@ -207,6 +202,22 @@ class _DramaDetailPageState extends State<DramaDetailPage> {
   }
 
   Future<void> _cacheAllDrama() async {
+    if (kIsWeb) {
+      final download = await showHgConfirmSheet(
+        context,
+        title: '离线缓存需要果幕 App',
+        message: '网页预览仅展示界面。请下载安装包后缓存短剧，离线观看。',
+        confirmLabel: '下载安装包',
+        cancelLabel: '继续浏览',
+      );
+      if (download) {
+        await launchUrl(
+          Uri.parse(kHgLatestReleaseUrl),
+          mode: LaunchMode.externalApplication,
+        );
+      }
+      return;
+    }
     final detail = _detail;
     if (detail == null) {
       showHgSnack(context, '详情还在加载，请稍后再试');
@@ -264,19 +275,14 @@ class _DramaDetailPageState extends State<DramaDetailPage> {
                   foregroundColor: favorite
                       ? HgColors.orange
                       : theme.colorScheme.onSurface,
+                  overlayColor: Colors.transparent,
                 ),
                 icon: Icon(
                   favorite ? Icons.star_rounded : Icons.star_border_rounded,
                 ),
                 label: Text(favorite ? '已追剧' : '追剧'),
               ),
-              const SizedBox(width: 4),
-              IconButton(
-                onPressed: detail == null ? null : _cacheAllDrama,
-                tooltip: '缓存全集',
-                icon: const Icon(Icons.download_for_offline_outlined),
-              ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 12),
               Expanded(
                 child: FilledButton.icon(
                   onPressed: _loading || detail == null ? null : _play,
@@ -287,6 +293,8 @@ class _DramaDetailPageState extends State<DramaDetailPage> {
                         : (_history?.lastEpisode ?? 0) > 0
                         ? '继续观看 · 第 ${_history!.lastEpisode} 集'
                         : '立即播放 · 第 1 集',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ),
@@ -606,18 +614,36 @@ class _DramaDetailPageState extends State<DramaDetailPage> {
                       const SizedBox(height: 20),
                       Row(
                         children: [
-                          Text('选集', style: theme.textTheme.titleLarge),
-                          const Spacer(),
-                          Text(
-                            episodes.isEmpty
-                                ? '暂未返回选集'
-                                : '共 ${episodes.length} 集',
-                            style: TextStyle(
-                              color: theme.colorScheme.onSurface.withValues(
-                                alpha: 0.43,
-                              ),
-                              fontSize: 11,
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('选集', style: theme.textTheme.titleLarge),
+                                const SizedBox(height: 3),
+                                Text(
+                                  episodes.isEmpty
+                                      ? '暂未返回选集'
+                                      : '共 ${episodes.length} 集',
+                                  style: TextStyle(
+                                    color: context.hgMuted,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
                             ),
+                          ),
+                          TextButton.icon(
+                            onPressed: _cacheAllDrama,
+                            style: TextButton.styleFrom(
+                              foregroundColor: context.hgOnSurface,
+                              overlayColor: Colors.transparent,
+                              minimumSize: const Size(0, 44),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
+                            ),
+                            icon: const Icon(Icons.download_rounded, size: 19),
+                            label: const Text('缓存全集'),
                           ),
                         ],
                       ),
