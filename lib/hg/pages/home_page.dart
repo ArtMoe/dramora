@@ -22,6 +22,64 @@ import 'user_activity_pages.dart';
 import 'video_more_page.dart';
 import '../widgets/hg_pressable.dart';
 
+class HomeFeedSections {
+  const HomeFeedSections({
+    required this.featured,
+    required this.latest,
+    required this.hot,
+  });
+
+  final List<HgVideoCard> featured;
+  final List<HgVideoCard> latest;
+  final List<HgVideoCard> hot;
+
+  List<HgVideoCard> feedFor(int videoId) {
+    for (final section in [featured, latest, hot]) {
+      if (section.any((item) => item.id == videoId)) return section;
+    }
+    return [];
+  }
+}
+
+HomeFeedSections buildHomeFeedSections({
+  required List<HgVideoCard> featured,
+  required List<HgVideoCard> latest,
+  required List<HgRankItem> hot,
+}) {
+  final seen = <int>{};
+  List<HgVideoCard> unique(List<HgVideoCard> cards) {
+    final result = <HgVideoCard>[];
+    for (final card in cards) {
+      if (card.id > 0 && seen.add(card.id)) result.add(card);
+    }
+    return List.unmodifiable(result);
+  }
+
+  final safeFeatured = unique(featured);
+  final safeLatest = unique(latest);
+  final safeHot = unique(
+    hot
+        .map<HgVideoCard>(
+          (item) => HgVideoCard(
+            id: item.videoId,
+            title: item.title,
+            cover: item.cover,
+            score: item.score,
+            episodeCount: item.episodeCount,
+            isFinished: item.isFinished,
+            tags: item.tags,
+            createdAt: '',
+          ),
+        )
+        .toList(growable: false),
+  );
+  return HomeFeedSections(
+    featured: safeFeatured,
+    latest: safeLatest,
+    hot: safeHot,
+  );
+}
+
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -211,9 +269,14 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> _openDetail(HgVideoCard video) async {
-    final latestIds = _latest.map((item) => item.id).toList(growable: false);
-    final ids = latestIds.contains(video.id) ? latestIds : [video.id];
+  Future<void> _openDetail(
+    HgVideoCard video, {
+    List<HgVideoCard>? feedSource,
+    String? heroTag,
+  }) async {
+    final source = feedSource ?? [video];
+    final ids = source.map((item) => item.id).toList(growable: false);
+    if (!ids.contains(video.id)) ids.insert(0, video.id);
     final index = ids.indexOf(video.id).clamp(0, ids.length - 1).toInt();
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -222,6 +285,7 @@ class _HomePageState extends State<HomePage> {
           preloaded: video,
           feedIds: ids,
           feedIndex: index,
+          heroTag: heroTag,
         ),
       ),
     );
@@ -343,8 +407,14 @@ class _HomePageState extends State<HomePage> {
                 .toDouble();
         final cellWidth = contentWidth / columns;
         final cardHeight = cellWidth / 0.68;
-        final featured = _home.featured.take(10).toList(growable: false);
-        final latest = _latest.take(6).toList(growable: false);
+        final sections = buildHomeFeedSections(
+          featured: _home.featured.take(10).toList(growable: false),
+          latest: _latest.take(6).toList(growable: false),
+          hot: _hotRank.take(3).toList(growable: false),
+        );
+        final featured = sections.featured;
+        final latest = sections.latest;
+        final hotCards = sections.hot;
         final hot = _hotRank.take(3).toList(growable: false);
         final topics = _topics.take(6).toList(growable: false);
 
@@ -403,7 +473,12 @@ class _HomePageState extends State<HomePage> {
                             itemBuilder: (context, index) => HgVideoRailCard(
                               video: featured[index],
                               width: 142,
-                              onTap: () => _openDetail(featured[index]),
+                              heroTag: 'home-featured-${featured[index].id}',
+                              onTap: () => _openDetail(
+                                featured[index],
+                                feedSource: featured,
+                                heroTag: 'home-featured-${featured[index].id}',
+                              ),
                             ),
                           ),
                         ),
@@ -436,7 +511,12 @@ class _HomePageState extends State<HomePage> {
                           itemCount: latest.length,
                           itemBuilder: (context, index) => HgVideoGridCard(
                             video: latest[index],
-                            onTap: () => _openDetail(latest[index]),
+                            heroTag: 'home-latest-${latest[index].id}',
+                            onTap: () => _openDetail(
+                              latest[index],
+                              feedSource: latest,
+                              heroTag: 'home-latest-${latest[index].id}',
+                            ),
                           ),
                         ),
                       ),
@@ -459,16 +539,9 @@ class _HomePageState extends State<HomePage> {
                           itemBuilder: (context, index) => _HotRankCard(
                             item: hot[index],
                             onTap: () => _openDetail(
-                              HgVideoCard(
-                                id: hot[index].videoId,
-                                title: hot[index].title,
-                                cover: hot[index].cover,
-                                score: hot[index].score,
-                                episodeCount: hot[index].episodeCount,
-                                isFinished: hot[index].isFinished,
-                                tags: hot[index].tags,
-                                createdAt: '',
-                              ),
+                              hotCards[index],
+                              feedSource: hotCards,
+                              heroTag: 'home-hot-${hotCards[index].id}',
                             ),
                           ),
                         ),

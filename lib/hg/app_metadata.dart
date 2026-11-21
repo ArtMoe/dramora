@@ -1,15 +1,28 @@
 abstract final class HgAppMetadata {
-  static const String version = '1.4.18';
-  static const String buildNumber = '23';
-  static const String versionLabel = 'v1.4.18 (23)';
-  static const String releaseTitle = '播放器可读性优化版';
+  static const String version = '1.4.19';
+  static const String buildNumber = '24';
+  static const String versionLabel = 'v1.4.19 (24)';
+  static const String releaseTitle = '首页内容衔接优化版';
   static const List<String> releaseNotes = [
-    '播放器互动栏与横屏操作栏增加轻微投影，浅色封面上的白色图标和数字更清楚。',
-    '投影只作用于图标与文字，不增加按钮底色，保持清爽的短视频观看体验。',
-    '继续保留无底色播放按钮、横向拖动进度和半屏面板的统一手感。',
+    '首页精选推荐、最近上新、热播短剧改为跨区块去重，内容不再重复出现。',
+    '从首页不同区块进入详情后，播放列表会使用对应区块来源，切换上下集更连贯。',
+    '首页卡片打开详情时加入封面共享转场，页面衔接更接近原生短视频应用。',
   ];
 
   static const List<HgReleaseRecord> releaseHistory = [
+    HgReleaseRecord(
+      version: 'v1.4.19',
+      buildNumber: '24',
+      date: '2026-11-21',
+      title: '首页内容衔接优化版',
+      features: [],
+      improvements: [
+        '首页精选推荐、最近上新和热播短剧跨区块去重，内容展示更干净。',
+        '首页各区块进入详情时沿用对应内容列表，切换上下集更连贯。',
+        '卡片打开详情增加封面共享转场，页面衔接更顺滑。',
+      ],
+      fixes: [],
+    ),
     HgReleaseRecord(
       version: 'v1.4.18',
       buildNumber: '23',

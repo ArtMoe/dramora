@@ -135,6 +135,7 @@ class HgCoverImage extends StatelessWidget {
     this.height,
     this.title = '',
     this.borderRadius = BorderRadius.zero,
+    this.heroTag,
   });
 
   final String url;
@@ -143,6 +144,7 @@ class HgCoverImage extends StatelessWidget {
   final double? height;
   final String title;
   final BorderRadius borderRadius;
+  final Object? heroTag;
 
   @override
   Widget build(BuildContext context) {
@@ -188,8 +190,12 @@ class HgCoverImage extends StatelessWidget {
               },
             ),
     );
-    if (borderRadius == BorderRadius.zero) return child;
-    return ClipRRect(borderRadius: borderRadius, child: child);
+    final clipped = borderRadius == BorderRadius.zero
+        ? child
+        : ClipRRect(borderRadius: borderRadius, child: child);
+    final tag = heroTag;
+    if (tag == null) return clipped;
+    return Hero(tag: tag, child: clipped);
   }
 }
 

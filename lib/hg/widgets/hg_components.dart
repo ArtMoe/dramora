@@ -93,11 +93,13 @@ class HgVideoGridCard extends StatelessWidget {
     required this.video,
     required this.onTap,
     this.hero = false,
+    this.heroTag,
   });
 
   final HgVideoCard video;
   final VoidCallback onTap;
   final bool hero;
+  final Object? heroTag;
 
   @override
   Widget build(BuildContext context) {
@@ -119,6 +121,7 @@ class HgVideoGridCard extends StatelessWidget {
                   url: video.cover,
                   title: video.title,
                   borderRadius: radius,
+                  heroTag: heroTag,
                 ),
                 DecoratedBox(
                   decoration: BoxDecoration(
@@ -234,10 +237,12 @@ class HgVideoMasonryCard extends StatelessWidget {
     super.key,
     required this.video,
     required this.onTap,
+    this.heroTag,
   });
 
   final HgVideoCard video;
   final VoidCallback onTap;
+  final Object? heroTag;
 
   @override
   Widget build(BuildContext context) {
@@ -265,7 +270,11 @@ class HgVideoMasonryCard extends StatelessWidget {
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        HgCoverImage(url: video.cover, title: video.title),
+                        HgCoverImage(
+                          url: video.cover,
+                          title: video.title,
+                          heroTag: heroTag,
+                        ),
                         const DecoratedBox(
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
@@ -374,11 +383,13 @@ class HgVideoRailCard extends StatelessWidget {
     required this.video,
     required this.onTap,
     this.width = 142,
+    this.heroTag,
   });
 
   final HgVideoCard video;
   final VoidCallback onTap;
   final double width;
+  final Object? heroTag;
 
   @override
   Widget build(BuildContext context) {

@@ -30,12 +30,14 @@ class DramaDetailPage extends StatefulWidget {
     this.preloaded,
     this.feedIds = const [],
     this.feedIndex = 0,
+    this.heroTag,
   });
 
   final int videoId;
   final HgVideoCard? preloaded;
   final List<int> feedIds;
   final int feedIndex;
+  final Object? heroTag;
 
   @override
   State<DramaDetailPage> createState() => _DramaDetailPageState();
@@ -343,7 +345,11 @@ class _DramaDetailPageState extends State<DramaDetailPage> {
                 background: Stack(
                   fit: StackFit.expand,
                   children: [
-                    HgCoverImage(url: cover, title: title),
+                    HgCoverImage(
+                      url: cover,
+                      title: title,
+                      heroTag: widget.heroTag,
+                    ),
                     const DecoratedBox(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
