@@ -468,7 +468,7 @@ class _HomePageState extends State<HomePage> {
                       ),
                       SliverToBoxAdapter(
                         child: SizedBox(
-                          height: 245,
+                          height: HgVideoRailCard.heightFor(context),
                           child: ListView.separated(
                             padding: const EdgeInsets.symmetric(horizontal: 16),
                             scrollDirection: Axis.horizontal,

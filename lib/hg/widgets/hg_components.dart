@@ -153,27 +153,6 @@ class HgVideoGridCard extends StatelessWidget {
                     ),
                   ),
                 Positioned(
-                  left: 11,
-                  right: 11,
-                  bottom: 72,
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          video.episodeLabel,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Positioned(
                   left: 13,
                   right: 12,
                   bottom: hero ? 16 : 12,
@@ -197,7 +176,7 @@ class HgVideoGridCard extends StatelessWidget {
                         children: [
                           Expanded(
                             child: Text(
-                              video.author?.name ?? video.episodeLabel,
+                              video.episodeLabel,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
@@ -206,18 +185,20 @@ class HgVideoGridCard extends StatelessWidget {
                               ),
                             ),
                           ),
-                          const Icon(
-                            Icons.play_arrow_rounded,
-                            color: Colors.white,
-                            size: 18,
-                          ),
-                          Text(
-                            formatCount(video.hot),
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 10.5,
+                          if (video.hot > 0) ...[
+                            const Icon(
+                              Icons.play_arrow_rounded,
+                              color: Colors.white,
+                              size: 18,
                             ),
-                          ),
+                            Text(
+                              formatCount(video.hot),
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 10.5,
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ],
@@ -391,6 +372,17 @@ class HgVideoRailCard extends StatelessWidget {
   final double width;
   final Object? heroTag;
 
+  static double heightFor(BuildContext context, {double width = 142}) {
+    final scaler = MediaQuery.textScalerOf(context);
+    return (width / 0.72 +
+            8 +
+            scaler.scale(13) * 1.3 +
+            4 +
+            scaler.scale(10) * 1.4 +
+            4)
+        .ceilToDouble();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -476,7 +468,7 @@ class HgVideoRailCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontSize: 13,
-                    height: 1.25,
+                    height: 1.3,
                     fontWeight: FontWeight.w700,
                     letterSpacing: -0.2,
                   ),
@@ -488,7 +480,7 @@ class HgVideoRailCard extends StatelessWidget {
                       : video.tags.first,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: muted, fontSize: 10),
+                  style: TextStyle(color: muted, fontSize: 10, height: 1.4),
                 ),
               ],
             ),

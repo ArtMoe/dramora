@@ -92,14 +92,17 @@
 - 浅色 / 深色 / 跟随系统
 - 可拖拽半屏面板、分享面板、显示模式选择
 - 追更通知、自动缓存、后台检查开关
-- iOS 灵动岛和锁屏实时活动；缺少实时活动或共享容器能力的安装环境会自动跳过，保持视频播放可用；缺少实时活动或共享容器能力的安装环境会自动跳过，保持视频播放可用
-- GitHub Releases 在线更新检查
+- iOS 灵动岛和锁屏实时活动；缺少实时活动或共享容器能力的安装环境会自动跳过，保持视频播放可用
+- GitHub API 在线更新：Android 应用内下载、进度显示与系统安装，iOS 提供手动更新说明
 - Tab 页面预加载与微光骨架动画
 - 多数据源管理、自动发现、测速排序与故障回退
+- GitHub Actions 每 4 小时同步官方最新地址，通过内容接口验证后才更新清单；设备仍按自己的网络测速选择
 - 版本化内容缓存、启动预热和切换数据源无白屏
 - Web、Android、iOS 多端构建
 
 ## 产品原则
+
+数据源清单同时提供 [GitHub API JSON 入口](https://api.github.com/repos/DearLicy/guomu/contents/assets/data/source_manifest.json?ref=main) 和 [Raw 入口](https://raw.githubusercontent.com/DearLicy/guomu/main/assets/data/source_manifest.json)。客户端优先通过 API 获取，兼容 API 默认的 Base64 JSON 与原始 JSON 响应，GitHub 网页无法打开时也可以独立尝试 API。
 
 1. **内容优先**：让封面、标题和播放路径成为视觉主线，而不是层层说明卡。
 2. **动作就近**：播放、追剧、选集和互动放在用户需要它们的上下文中。

@@ -11,7 +11,7 @@ import 'hg_source_pool.dart';
 import '../models/hg_models.dart';
 
 const String kHgDefaultBaseUrl = 'https://huangguoai.com';
-const String kHgBootstrapBaseUrl = 'https://2a52.bmikbxhi.cc';
+const String kHgBootstrapBaseUrl = 'https://fdu.kplsifomz.cc';
 const String _configuredBaseUrl = String.fromEnvironment('HG_API_BASE');
 const String _configuredWebProxyUrl = String.fromEnvironment(
   'HG_WEB_PROXY_URL',
@@ -77,6 +77,33 @@ String? normalizeHgDiscoveredSource(
   } catch (_) {
     return null;
   }
+}
+
+/// Resolve the official publish.js address arrays without evaluating script.
+List<String> parseHgPublisherSources(String text) {
+  List<String> array(String name) {
+    final body = RegExp(
+      r'\b(?:var|let|const)\s+' + name + r'\s*=\s*\[([\s\S]*?)\]',
+    ).firstMatch(text)?.group(1);
+    if (body == null) return const [];
+    return RegExp(r'''['"]([^'"]+)['"]''')
+        .allMatches(body.replaceAll(RegExp(r'//[^\n]*'), ''))
+        .map((match) => match.group(1)!)
+        .toList();
+  }
+
+  final result = <String>{};
+  for (final root in array('urls').take(12)) {
+    for (final subdomain in array('subdomains').take(3)) {
+      if (!RegExp(r'^[a-zA-Z0-9-]+$').hasMatch(subdomain)) continue;
+      final normalized = normalizeHgDiscoveredSource(
+        'https://$subdomain.${root.replaceAll(RegExp(r'/+$'), '')}',
+        trustedManifest: true,
+      );
+      if (normalized != null) result.add(normalized);
+    }
+  }
+  return result.toList();
 }
 
 bool _isLocalOrPrivateHost(String host) {
@@ -218,8 +245,14 @@ class HgApi {
     );
     final timer = Stopwatch()..start();
     try {
-      final response = await dio.get<String>(
-        '$normalized/api/site/entries',
+      final response = await dio.post<String>(
+        '$normalized/api/edge/request',
+        data: {
+          'method': 'GET',
+          'path': '/api/home',
+          'body': '',
+          'content_type': '',
+        },
         options: Options(responseType: ResponseType.plain),
       );
       final body = response.data ?? '';
@@ -229,11 +262,17 @@ class HgApi {
       } on FormatException {
         decoded = null;
       }
+      final data = decoded is Map ? decoded['data'] : null;
       final validEnvelope =
           decoded is Map &&
-          (decoded.containsKey('entries') ||
-              decoded.containsKey('data') ||
-              (decoded['status'] is num && decoded['status'] == 1));
+          decoded['status'] == 1 &&
+          data is Map &&
+          [
+            'banners',
+            'featured',
+            'latest',
+            'cate_rec',
+          ].any((key) => data[key] is List);
       if ((response.statusCode ?? 0) >= 200 &&
           (response.statusCode ?? 0) < 300 &&
           validEnvelope) {
@@ -1117,7 +1156,7 @@ class HgApi {
   static const _githubSourceManifestUrl = String.fromEnvironment(
     'HG_GITHUB_SOURCE_MANIFEST_URL',
     defaultValue:
-        'https://api.github.com/repos/DearLicy/guomu/contents/assets/data/source_manifest.json',
+        'https://api.github.com/repos/DearLicy/guomu/contents/assets/data/source_manifest.json?ref=main',
   );
 
   static const _githubSourceManifestMirrors = [
@@ -1129,6 +1168,7 @@ class HgApi {
     Iterable<String> seeds = const [],
   }) async {
     final found = <String>{...seeds};
+    final publisherSources = <String>{};
     final trustedManifestSources = <String>{};
     final dio = Dio(
       BaseOptions(
@@ -1148,6 +1188,7 @@ class HgApi {
         if (body.isEmpty) return;
         if (path.endsWith('publish.js')) {
           _collectSourceText(body, found);
+          publisherSources.addAll(parseHgPublisherSources(body));
           return;
         }
         dynamic decoded;
@@ -1238,8 +1279,11 @@ class HgApi {
         result.add(normalized);
       }
     }
-    for (final value in found) {
-      final normalized = normalizeHgDiscoveredSource(value);
+    for (final value in {...found, ...publisherSources}) {
+      final normalized = normalizeHgDiscoveredSource(
+        value,
+        trustedManifest: publisherSources.contains(value),
+      );
       if (normalized != null && !result.contains(normalized)) {
         result.add(normalized);
       }

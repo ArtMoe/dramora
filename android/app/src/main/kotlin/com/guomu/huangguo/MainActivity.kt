@@ -1,15 +1,47 @@
 package com.guomu.huangguo
 
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
+import androidx.core.content.FileProvider
+import java.io.File
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
     private var deepLinkChannel: MethodChannel? = null
+    private var pendingUpdatePath: String? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.guomu.huangguo/update")
+            .setMethodCallHandler { call, result ->
+                if (call.method != "installApk") {
+                    result.notImplemented()
+                } else {
+                    try {
+                        val file = File(call.argument<String>("path").orEmpty()).canonicalFile
+                        val allowed = File(cacheDir, "guomu-updates").canonicalFile
+                        if (file.parentFile != allowed || !file.isFile || file.extension != "apk") {
+                            result.error("invalid_apk", "安装包不存在，请重新下载", null)
+                        } else if (!hasMatchingSignature(file)) {
+                            result.error("signature_mismatch", "新版安装签名与当前版本不兼容。请保留需要的数据后卸载旧版，再手动安装新版；后续版本可直接更新。", null)
+                        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !packageManager.canRequestPackageInstalls()) {
+                            pendingUpdatePath = file.path
+                            startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName")))
+                            result.success(true)
+                        } else {
+                            openInstaller(file)
+                            result.success(true)
+                        }
+                    } catch (error: Exception) {
+                        result.error("install_failed", "无法打开安装程序", null)
+                    }
+                }
+            }
         deepLinkChannel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             "com.guomu.huangguo/deeplink",
@@ -54,5 +86,33 @@ class MainActivity : FlutterActivity() {
         intent.data?.toString()?.let { link ->
             deepLinkChannel?.invokeMethod("link", link)
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        val path = pendingUpdatePath ?: return
+        pendingUpdatePath = null
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || packageManager.canRequestPackageInstalls()) {
+            try { openInstaller(File(path)) } catch (_: Exception) { }
+        }
+    }
+
+    private fun openInstaller(file: File) {
+        val uri = FileProvider.getUriForFile(this, "$packageName.updates", file)
+        startActivity(Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, "application/vnd.android.package-archive")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        })
+    }
+
+    @Suppress("DEPRECATION")
+    private fun hasMatchingSignature(file: File): Boolean {
+        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) PackageManager.GET_SIGNING_CERTIFICATES else PackageManager.GET_SIGNATURES
+        val current = packageManager.getPackageInfo(packageName, flags)
+        val update = packageManager.getPackageArchiveInfo(file.path, flags) ?: return false
+        if (update.packageName != packageName) return false
+        val oldSigners = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) current.signingInfo?.apkContentsSigners else current.signatures
+        val newSigners = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) update.signingInfo?.apkContentsSigners else update.signatures
+        return oldSigners != null && newSigners != null && oldSigners.isNotEmpty() && oldSigners.all { old -> newSigners.any { next -> old.toByteArray().contentEquals(next.toByteArray()) } }
     }
 }

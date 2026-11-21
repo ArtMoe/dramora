@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  HG_API_BASE: https://d1716d.bmikbxhi.cc
+  HG_API_BASE: https://fdu.kplsifomz.cc
 
 jobs:
   validate:
@@ -32,6 +32,7 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test
+      - run: python3 -m unittest discover -s tool/tests -p 'test_sync_sources.py'
 
   build-web:
     needs: validate
@@ -92,11 +93,33 @@ jobs:
           cache: true
       - run: flutter pub get
       - name: Build APK
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
+          test -n "$ANDROID_KEYSTORE_BASE64" || { echo 'Android release signing is not configured.'; exit 1; }
+          mkdir -p .tmp/signing
+          python3 - <<'PY'
+          import base64, os
+          from pathlib import Path
+          root = Path.cwd()
+          key = root / '.tmp/signing/guomu-release.p12'
+          key.write_bytes(base64.b64decode(os.environ['ANDROID_KEYSTORE_BASE64']))
+          Path('android/key.properties').write_text(
+              'storeFile=' + str(key) + '\n' +
+              'storePassword=' + os.environ['ANDROID_KEYSTORE_PASSWORD'] + '\n' +
+              'keyAlias=' + os.environ['ANDROID_KEY_ALIAS'] + '\n' +
+              'keyPassword=' + os.environ['ANDROID_KEY_PASSWORD'] + '\n')
+          PY
           flutter build apk --release \
             --dart-define="HG_API_BASE=$HG_API_BASE"
           VERSION="$(sed -n 's/^version:[[:space:]]*//p' pubspec.yaml | cut -d+ -f1)"
           cp build/app/outputs/flutter-apk/app-release.apk "Guomu-${VERSION}.apk"
+      - name: Remove signing material
+        if: always()
+        run: rm -f android/key.properties .tmp/signing/guomu-release.p12
       - uses: actions/upload-artifact@v4
         with:
           name: guomu-android

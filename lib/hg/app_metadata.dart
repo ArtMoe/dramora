@@ -1,17 +1,43 @@
 abstract final class HgAppMetadata {
-  static const String version = '1.4.22';
-  static const String buildNumber = '27';
-  static const String versionLabel = 'v1.4.22 (27)';
-  static const String releaseTitle = '选集、续播与缓存体验优化版';
+  static const String version = '1.4.23';
+  static const String buildNumber = '28';
+  static const String versionLabel = 'v1.4.23 (28)';
+  static const String releaseTitle = '数据源同步与应用内更新版';
   static const List<String> releaseNotes = [
-    '远距离选集直接切到目标集，不再滑过并播放中间剧集。',
-    '横屏选集与评论面板适配有限高度，当前剧集自动定位，选集触控区域更大。',
-    '修复快进后切集可能出现旧视频继续播放，以及旧进度覆盖当前集记录的问题。',
-    '下载页继续本机记录的集数与进度，详情页同步显示正在缓存、已缓存状态。',
-    '删除单部缓存增加确认，修复等待状态进度条持续转动和小封面占位溢出。',
+    '自动同步官方最新地址，改进连接与数据源面板，按本机网络选择线路。',
+    'Android 通过 GitHub API 在应用内下载更新，显示进度并在完成后打开系统安装。',
+    'iOS 更新提供手动下载安装说明。',
+    '搜索栏固定在顶部，支持点击搜索，滚动结果时仍可随时修改关键词。',
+    '修复快速切换关键词、清空输入后旧结果重新出现的问题。',
+    '翻页失败保留已加载内容，可在列表底部重试；短列表自动继续加载。',
+    '热搜与推荐分批显示，优化深色模式联想词可读性和编辑时的联想体验。',
+    '猜你喜欢进入详情时保留同组推荐，返回搜索后继续原来的位置。',
   ];
 
   static const List<HgReleaseRecord> releaseHistory = [
+    HgReleaseRecord(
+      version: 'v1.4.23',
+      buildNumber: '28',
+      date: '2026-11-21',
+      title: '数据源同步与应用内更新版',
+      features: [
+        '自动同步官方最新地址，支持解析新版发布页并验证真实内容接口。',
+        'Android 应用内下载更新，显示进度、校验安装包并自动打开系统安装。',
+      ],
+      improvements: [
+        '重整数据源面板，突出当前连接、延迟与可选线路，支持手动选择和添加。',
+        'iOS 明确提示手动更新方式，GitHub API 数据源清单持续更新。',
+        '搜索栏固定顶部，支持点击搜索和拖动列表收起键盘。',
+        '热搜、题材与推荐独立显示，短列表自动加载后续内容。',
+        '搜索推荐进入详情时保留同组内容，返回后保持关键词与浏览位置。',
+        '卡片集数去重并隐藏空热度计数，横排卡片适配系统字体大小。',
+      ],
+      fixes: [
+        '修复旧搜索或翻页响应覆盖新关键词结果、清空后旧结果重新出现的问题。',
+        '修复翻页失败隐藏已有结果，以及尚有更多内容却提前显示到底的问题。',
+        '修复编辑已搜索关键词时没有联想词、深色模式联想词不易看清的问题。',
+      ],
+    ),
     HgReleaseRecord(
       version: 'v1.4.22',
       buildNumber: '27',

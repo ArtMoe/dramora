@@ -1,0 +1,47 @@
+name: Sync official sources
+
+on:
+  schedule:
+    - cron: '17 */4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: guomu-source-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify discovery parser
+        run: python -m unittest discover -s tool/tests -p 'test_sync_sources.py'
+      - name: Discover and validate official addresses
+        run: python tool/sync_sources.py
+      - name: Commit changed source list
+        run: |
+          if git diff --quiet -- assets/data/source_manifest.json; then
+            echo 'The verified source list has not changed.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add assets/data/source_manifest.json
+          git commit -m 'chore: refresh verified official sources [skip ci]'
+          git pull --rebase origin main
+          git push origin HEAD:main
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: source-sync-report
+          path: .tmp/source-sync-report.json
+          retention-days: 7
