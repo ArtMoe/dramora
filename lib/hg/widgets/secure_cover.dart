@@ -194,7 +194,7 @@ class HgCoverImage extends StatelessWidget {
         ? child
         : ClipRRect(borderRadius: borderRadius, child: child);
     final tag = heroTag;
-    if (tag == null) return clipped;
+    if (tag == null || MediaQuery.disableAnimationsOf(context)) return clipped;
     return Hero(tag: tag, child: clipped);
   }
 }

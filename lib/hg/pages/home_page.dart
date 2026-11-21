@@ -31,15 +31,32 @@ class HomeFeedSections {
 
   final List<HgVideoCard> featured;
   final List<HgVideoCard> latest;
-  final List<HgVideoCard> hot;
+  final List<HgRankItem> hot;
 
   List<HgVideoCard> feedFor(int videoId) {
-    for (final section in [featured, latest, hot]) {
+    for (final section in [featured, latest]) {
       if (section.any((item) => item.id == videoId)) return section;
     }
-    return [];
+    if (hot.any((item) => item.videoId == videoId)) {
+      return hot.map(homeRankVideo).toList(growable: false);
+    }
+    return const [];
   }
 }
+
+HgVideoCard homeRankVideo(HgRankItem item) => HgVideoCard(
+  id: item.videoId,
+  title: item.title,
+  cover: item.cover,
+  score: item.score,
+  episodeCount: item.episodeCount,
+  isFinished: item.isFinished,
+  tags: item.tags,
+  hot: item.playCount,
+  likeCount: item.likeCount,
+  collectCount: item.collectCount,
+  commentCount: item.commentCount,
+);
 
 HomeFeedSections buildHomeFeedSections({
   required List<HgVideoCard> featured,
@@ -47,31 +64,16 @@ HomeFeedSections buildHomeFeedSections({
   required List<HgRankItem> hot,
 }) {
   final seen = <int>{};
-  List<HgVideoCard> unique(List<HgVideoCard> cards) {
-    final result = <HgVideoCard>[];
-    for (final card in cards) {
-      if (card.id > 0 && seen.add(card.id)) result.add(card);
-    }
-    return List.unmodifiable(result);
+  List<HgVideoCard> unique(Iterable<HgVideoCard> cards, int limit) {
+    return List.unmodifiable(
+      cards.where((card) => card.id > 0 && seen.add(card.id)).take(limit),
+    );
   }
 
-  final safeFeatured = unique(featured);
-  final safeLatest = unique(latest);
-  final safeHot = unique(
-    hot
-        .map<HgVideoCard>(
-          (item) => HgVideoCard(
-            id: item.videoId,
-            title: item.title,
-            cover: item.cover,
-            score: item.score,
-            episodeCount: item.episodeCount,
-            isFinished: item.isFinished,
-            tags: item.tags,
-            createdAt: '',
-          ),
-        )
-        .toList(growable: false),
+  final safeFeatured = unique(featured, 10);
+  final safeLatest = unique(latest, 6);
+  final safeHot = List<HgRankItem>.unmodifiable(
+    hot.where((item) => item.videoId > 0 && seen.add(item.videoId)).take(3),
   );
   return HomeFeedSections(
     featured: safeFeatured,
@@ -275,7 +277,11 @@ class _HomePageState extends State<HomePage> {
     String? heroTag,
   }) async {
     final source = feedSource ?? [video];
-    final ids = source.map((item) => item.id).toList(growable: false);
+    final ids = source
+        .map((item) => item.id)
+        .where((id) => id > 0)
+        .toSet()
+        .toList();
     if (!ids.contains(video.id)) ids.insert(0, video.id);
     final index = ids.indexOf(video.id).clamp(0, ids.length - 1).toInt();
     await Navigator.of(context).push(
@@ -408,14 +414,13 @@ class _HomePageState extends State<HomePage> {
         final cellWidth = contentWidth / columns;
         final cardHeight = cellWidth / 0.68;
         final sections = buildHomeFeedSections(
-          featured: _home.featured.take(10).toList(growable: false),
-          latest: _latest.take(6).toList(growable: false),
-          hot: _hotRank.take(3).toList(growable: false),
+          featured: _home.featured,
+          latest: _latest,
+          hot: _hotRank,
         );
         final featured = sections.featured;
         final latest = sections.latest;
-        final hotCards = sections.hot;
-        final hot = _hotRank.take(3).toList(growable: false);
+        final hot = sections.hot;
         final topics = _topics.take(6).toList(growable: false);
 
         return ColoredBox(
@@ -476,7 +481,9 @@ class _HomePageState extends State<HomePage> {
                               heroTag: 'home-featured-${featured[index].id}',
                               onTap: () => _openDetail(
                                 featured[index],
-                                feedSource: featured,
+                                feedSource: sections.feedFor(
+                                  featured[index].id,
+                                ),
                                 heroTag: 'home-featured-${featured[index].id}',
                               ),
                             ),
@@ -514,7 +521,7 @@ class _HomePageState extends State<HomePage> {
                             heroTag: 'home-latest-${latest[index].id}',
                             onTap: () => _openDetail(
                               latest[index],
-                              feedSource: latest,
+                              feedSource: sections.feedFor(latest[index].id),
                               heroTag: 'home-latest-${latest[index].id}',
                             ),
                           ),
@@ -538,10 +545,11 @@ class _HomePageState extends State<HomePage> {
                               const SizedBox(height: 10),
                           itemBuilder: (context, index) => _HotRankCard(
                             item: hot[index],
+                            heroTag: 'home-hot-${hot[index].videoId}',
                             onTap: () => _openDetail(
-                              hotCards[index],
-                              feedSource: hotCards,
-                              heroTag: 'home-hot-${hotCards[index].id}',
+                              homeRankVideo(hot[index]),
+                              feedSource: sections.feedFor(hot[index].videoId),
+                              heroTag: 'home-hot-${hot[index].videoId}',
                             ),
                           ),
                         ),
@@ -1214,10 +1222,11 @@ class _ShortcutCard extends StatelessWidget {
 }
 
 class _HotRankCard extends StatelessWidget {
-  const _HotRankCard({required this.item, required this.onTap});
+  const _HotRankCard({required this.item, required this.onTap, this.heroTag});
 
   final HgRankItem item;
   final VoidCallback onTap;
+  final Object? heroTag;
 
   @override
   Widget build(BuildContext context) {
@@ -1252,7 +1261,11 @@ class _HotRankCard extends StatelessWidget {
                 child: SizedBox(
                   width: 72,
                   height: 92,
-                  child: HgCoverImage(url: item.cover, title: item.title),
+                  child: HgCoverImage(
+                    url: item.cover,
+                    title: item.title,
+                    heroTag: heroTag,
+                  ),
                 ),
               ),
               const SizedBox(width: 11),

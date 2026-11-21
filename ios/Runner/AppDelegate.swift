@@ -3,11 +3,13 @@ import Flutter
 import UserNotifications
 import AVFoundation
 import MediaPlayer
+import ActivityKit
 import workmanager_apple
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
   private var deepLinkChannel: FlutterMethodChannel?
+  private var liveActivityChannel: FlutterMethodChannel?
   private var nowPlayingChannel: FlutterMethodChannel?
   private var pendingDeepLink: String?
   private var remoteCommandsConfigured = false
@@ -48,6 +50,60 @@ import workmanager_apple
         name: "com.guomu.huangguo/nowplaying",
         binaryMessenger: controller.binaryMessenger
       )
+      let liveActivityChannel = FlutterMethodChannel(
+        name: "com.guomu.huangguo/liveactivity",
+        binaryMessenger: controller.binaryMessenger
+      )
+      self.liveActivityChannel = liveActivityChannel
+      liveActivityChannel.setMethodCallHandler { call, result in
+        let groupId = "group.com.guomu.huangguo"
+        switch call.method {
+        case "isAvailable":
+          guard #available(iOS 16.1, *),
+                FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: groupId) != nil,
+                let plugins = Bundle.main.builtInPlugInsURL,
+                let extensions = try? FileManager.default.contentsOfDirectory(
+                  at: plugins, includingPropertiesForKeys: nil
+                ),
+                extensions.contains(where: { $0.lastPathComponent == "GuomuWidget.appex" }) else {
+            result(false)
+            return
+          }
+          result(ActivityAuthorizationInfo().areActivitiesEnabled)
+        case "prepareCover":
+          guard let args = call.arguments as? [String: Any],
+                let bytes = args["bytes"] as? FlutterStandardTypedData,
+                let videoId = args["videoId"] as? Int,
+                let root = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: groupId),
+                let image = UIImage(data: bytes.data),
+                image.size.width > 0, image.size.height > 0 else {
+            result("")
+            return
+          }
+          do {
+            let directory = root.appendingPathComponent("GuomuActivityCovers", isDirectory: true)
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            let scale = min(1, 128 / max(image.size.width, image.size.height))
+            let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = 1
+            let thumbnail = UIGraphicsImageRenderer(size: size, format: format).image { _ in
+              image.draw(in: CGRect(origin: .zero, size: size))
+            }
+            guard let jpeg = thumbnail.jpegData(compressionQuality: 0.8) else {
+              result("")
+              return
+            }
+            let destination = directory.appendingPathComponent("cover-\(videoId).jpg")
+            try jpeg.write(to: destination, options: .atomic)
+            result(destination.path)
+          } catch {
+            result("")
+          }
+        default:
+          result(FlutterMethodNotImplemented)
+        }
+      }
       self.deepLinkChannel = linkChannel
       self.nowPlayingChannel = nowPlayingChannel
       configureRemoteCommands()

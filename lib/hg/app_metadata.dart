@@ -2,10 +2,12 @@ abstract final class HgAppMetadata {
   static const String version = '1.4.19';
   static const String buildNumber = '24';
   static const String versionLabel = 'v1.4.19 (24)';
-  static const String releaseTitle = '首页内容衔接优化版';
+  static const String releaseTitle = 'iOS 播放稳定性与首页优化版';
   static const List<String> releaseNotes = [
+    '修复 iOS 在封面为空或加载失败时，进入视频播放可能闪退的问题。',
+    '优化实时活动兼容性，系统能力不可用时仍可正常观看视频。',
     '首页精选推荐、最近上新、热播短剧改为跨区块去重，内容不再重复出现。',
-    '从首页不同区块进入详情后，播放列表会使用对应区块来源，切换上下集更连贯。',
+    '从首页不同区块进入详情后，播放列表会使用对应区块来源，接着浏览同一区块的短剧。',
     '首页卡片打开详情时加入封面共享转场，页面衔接更接近原生短视频应用。',
   ];
 
@@ -14,14 +16,18 @@ abstract final class HgAppMetadata {
       version: 'v1.4.19',
       buildNumber: '24',
       date: '2026-11-21',
-      title: '首页内容衔接优化版',
+      title: 'iOS 播放稳定性与首页优化版',
       features: [],
       improvements: [
         '首页精选推荐、最近上新和热播短剧跨区块去重，内容展示更干净。',
-        '首页各区块进入详情时沿用对应内容列表，切换上下集更连贯。',
+        '首页各区块进入详情时沿用对应内容列表，接着浏览同一区块的短剧。',
         '卡片打开详情增加封面共享转场，页面衔接更顺滑。',
       ],
-      fixes: [],
+      fixes: [
+        '修复 iOS 实时活动封面为空或加载失败时进入播放器闪退。',
+        '修复快速切集时实时活动重复创建，以及离开播放器后活动再次出现的问题。',
+        '优化实时活动不可用环境下的播放兼容性。',
+      ],
     ),
     HgReleaseRecord(
       version: 'v1.4.18',

@@ -415,7 +415,11 @@ class HgVideoRailCard extends StatelessWidget {
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        HgCoverImage(url: video.cover, title: video.title),
+                        HgCoverImage(
+                          url: video.cover,
+                          title: video.title,
+                          heroTag: heroTag,
+                        ),
                         const DecoratedBox(
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
