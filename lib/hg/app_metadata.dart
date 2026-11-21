@@ -1,17 +1,31 @@
 abstract final class HgAppMetadata {
-  static const String version = '1.4.9';
-  static const String buildNumber = '14';
-  static const String versionLabel = 'v1.4.9 (14)';
-  static const String releaseTitle = '流畅播放与横屏体验版';
+  static const String version = '1.4.10';
+  static const String buildNumber = '15';
+  static const String versionLabel = 'v1.4.10 (15)';
+  static const String releaseTitle = '半屏交互与播放手感版';
   static const List<String> releaseNotes = [
-    '拖动进度条后保持目标位置，避免跳转完成前回弹，并显示已缓冲范围。',
-    '播放缓冲超过短暂等待后显示提示，减少指示器频繁闪烁。',
-    '修复片尾提前切集和回拖后无法继续自动连播的问题。',
-    '横屏增加选集入口，适配屏幕安全区并扩大控制按钮触控范围。',
-    '优化播放中断恢复，保留中断位置，避免连续失败后反复重连。',
+    '统一半屏面板拖动，顶部横条可展开、收起和关闭，面板不会再只跟着外层弹窗移动。',
+    '登录、评论和编辑资料统一处理键盘避让，修复重复底部留白与输入框被遮挡。',
+    '播放页单击直接暂停或继续，清屏状态下也会先恢复控件，交互更接近短视频平台。',
+    '播放器进度条、缓冲提示与自动连播继续优化，减少切集和调整进度时的等待感。',
   ];
 
   static const List<HgReleaseRecord> releaseHistory = [
+    HgReleaseRecord(
+      version: 'v1.4.10',
+      buildNumber: '15',
+      date: '2026-11-21',
+      title: '半屏交互与播放手感版',
+      features: [
+        '半屏面板顶部横条支持拖动展开、收起和关闭，并提供明确的无障碍操作提示。',
+        '播放页清屏状态下单击可直接暂停或继续，同时恢复必要控件。',
+      ],
+      improvements: [
+        '登录、评论、资料编辑和确认面板共享同一套键盘避让与安全区处理。',
+        '面板展开与收起使用短时缓出动画，拖动时实时跟随手指。',
+      ],
+      fixes: ['修复顶部横条只能拖动外层弹窗、无法展开内部面板的问题。', '修复键盘弹出后表单被遮挡或重复增加底部留白的问题。'],
+    ),
     HgReleaseRecord(
       version: 'v1.4.9',
       buildNumber: '14',

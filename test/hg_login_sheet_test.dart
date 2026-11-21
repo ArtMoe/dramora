@@ -29,6 +29,6 @@ void main() {
 
     expect(find.text('登录黄果'), findsOneWidget);
     expect(find.byIcon(Icons.close_rounded), findsNothing);
-    expect(find.byType(DraggableScrollableSheet), findsOneWidget);
+    expect(find.byKey(const ValueKey('hg-adaptive-sheet')), findsOneWidget);
   });
 }

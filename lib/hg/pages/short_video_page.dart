@@ -967,10 +967,6 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
   }
 
   Future<void> _togglePlayback() async {
-    if (!widget.chromeVisible) {
-      widget.onToggleChrome();
-      return;
-    }
     final controller = _controller;
     if (controller == null) {
       if (_error != null) {
@@ -984,6 +980,7 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
       return;
     }
     await controller.toggle();
+    if (!widget.chromeVisible) widget.onToggleChrome();
     _emitProgress(force: true);
   }
 
@@ -1506,11 +1503,7 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
                       !_scrubbing &&
                       (_seeking ||
                           (_controller!.isPlaying && _controller!.isBuffering)),
-                  paused:
-                      !_controller!.isPlaying &&
-                      widget.chromeVisible &&
-                      !_scrubbing &&
-                      !_seeking,
+                  paused: !_controller!.isPlaying && !_scrubbing && !_seeking,
                 ),
               ),
             ),

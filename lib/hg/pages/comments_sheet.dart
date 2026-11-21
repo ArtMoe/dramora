@@ -211,41 +211,37 @@ class _CommentsSheetState extends State<CommentsSheet> {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthController>();
-    final inset = MediaQuery.viewInsetsOf(context).bottom;
-    return Padding(
-      padding: EdgeInsets.only(bottom: inset),
-      child: Container(
-        decoration: BoxDecoration(
-          color: context.hgSurface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          children: [
-            SizedBox(
-              height: 54,
-              child: Center(
-                child: Text(
-                  '${_total > 0 ? formatCount(_total) : ''}条评论',
-                  style: TextStyle(
-                    color: context.hgOnSurface,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
+    return Container(
+      decoration: BoxDecoration(
+        color: context.hgSurface,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          SizedBox(
+            height: 54,
+            child: Center(
+              child: Text(
+                '${_total > 0 ? formatCount(_total) : ''}条评论',
+                style: TextStyle(
+                  color: context.hgOnSurface,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
-            Expanded(child: _buildBody(auth)),
-            _CommentComposer(
-              controller: _input,
-              focusNode: _focus,
-              sending: _sending,
-              enabled: auth.isLoggedIn,
-              onSend: _send,
-              onLogin: () => showLoginSheet(context),
-            ),
-          ],
-        ),
+          ),
+          Expanded(child: _buildBody(auth)),
+          _CommentComposer(
+            controller: _input,
+            focusNode: _focus,
+            sending: _sending,
+            enabled: auth.isLoggedIn,
+            onSend: _send,
+            onLogin: () => showLoginSheet(context),
+          ),
+        ],
       ),
     );
   }
