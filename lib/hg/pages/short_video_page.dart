@@ -15,6 +15,7 @@ import '../utils/hg_format.dart';
 import '../utils/hg_player_gestures.dart';
 import '../services/hg_live_activity_service.dart';
 import '../services/hg_now_playing_service.dart';
+import '../services/hg_wake_lock_service.dart';
 import '../models/hg_download_models.dart';
 import '../utils/hg_download_manager.dart';
 import '../utils/hg_local_history.dart';
@@ -65,6 +66,8 @@ class _ShortVideoPageState extends State<ShortVideoPage>
   bool _loadingNextDrama = false;
   bool _chromeVisible = true;
   bool _speedLocked = false;
+  bool _applicationActive = true;
+  bool _activeEpisodePlaying = false;
   double _playbackSpeed = 1;
   bool get _previewOnly => kIsWeb && kHgWebPreviewOnly;
   String? _error;
@@ -80,12 +83,16 @@ class _ShortVideoPageState extends State<ShortVideoPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    _applicationActive =
+        lifecycle == null || lifecycle == AppLifecycleState.resumed;
     _pageController = PageController();
     _startDramaIndex = widget.videoIds.isEmpty
         ? 0
         : widget.startIndex.clamp(0, widget.videoIds.length - 1);
     _lastLoadedDramaIndex = _startDramaIndex;
     if (!_previewOnly) unawaited(HgPlayerDisplay.enterAutoRotate());
+    unawaited(_syncWakeLock());
     unawaited(_initialize());
   }
 
@@ -96,17 +103,34 @@ class _ShortVideoPageState extends State<ShortVideoPage>
     _pageController.dispose();
     unawaited(HgLiveActivityService.end());
     unawaited(HgNowPlayingService.clear());
+    unawaited(HgWakeLockService.release());
     if (!_previewOnly) unawaited(HgPlayerDisplay.reset());
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.inactive ||
-        state == AppLifecycleState.paused ||
-        state == AppLifecycleState.detached) {
+    _applicationActive = state == AppLifecycleState.resumed;
+    if (!_applicationActive) {
       unawaited(_saveCurrentProgress());
     }
+    unawaited(_syncWakeLock());
+  }
+
+  Future<void> _syncWakeLock() {
+    if (_previewOnly) return HgWakeLockService.release();
+    return HgWakeLockService.update(
+      playing: _activeEpisodePlaying,
+      applicationActive: _applicationActive,
+    );
+  }
+
+  void _onEpisodePlaybackChanged(int index, bool playing) {
+    if (!mounted || index != _currentPage || _activeEpisodePlaying == playing) {
+      return;
+    }
+    _activeEpisodePlaying = playing;
+    unawaited(_syncWakeLock());
   }
 
   Future<void> _initialize() async {
@@ -279,6 +303,8 @@ class _ShortVideoPageState extends State<ShortVideoPage>
       _currentDurationMs = 0;
       _chromeVisible = true;
     });
+    _activeEpisodePlaying = false;
+    unawaited(_syncWakeLock());
     unawaited(_recordHistory(_entries[index]));
     unawaited(_prefetchAround(index));
     unawaited(_ensureNextDrama());
@@ -487,6 +513,8 @@ class _ShortVideoPageState extends State<ShortVideoPage>
                         },
                         onProgress: (position, duration) =>
                             _handleProgress(entry, position, duration),
+                        onPlaybackStateChanged: (playing) =>
+                            _onEpisodePlaybackChanged(index, playing),
                         onEnded: _playNext,
                       );
                     },
@@ -652,6 +680,7 @@ class _EpisodePlayer extends StatefulWidget {
     required this.onOpenEpisodes,
     required this.onSpeedLockChanged,
     required this.onProgress,
+    required this.onPlaybackStateChanged,
     required this.onEnded,
   });
 
@@ -670,6 +699,7 @@ class _EpisodePlayer extends StatefulWidget {
   final Future<void> Function() onOpenEpisodes;
   final ValueChanged<bool> onSpeedLockChanged;
   final void Function(Duration position, Duration duration) onProgress;
+  final ValueChanged<bool> onPlaybackStateChanged;
   final Future<void> Function() onEnded;
 
   @override
@@ -727,6 +757,9 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
       );
     }
     if (oldWidget.active != widget.active) {
+      if (oldWidget.active && !widget.active) {
+        widget.onPlaybackStateChanged(false);
+      }
       _syncPlaybackState();
       if (widget.active) unawaited(_initializeNowPlaying());
     }
@@ -829,6 +862,10 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
   void _handleControllerChanged() {
     final controller = _controller;
     if (controller != null && controller.hasError) {
+      if (_lastPlaying != false) {
+        _lastPlaying = false;
+        if (widget.active) widget.onPlaybackStateChanged(false);
+      }
       if (_initializing || _recovering) return;
       _recovering = true;
       // ChangeNotifier must finish notifying before its controller is disposed.
@@ -837,6 +874,9 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
     }
     if (_lastPlaying != controller?.isPlaying) {
       _lastPlaying = controller?.isPlaying;
+      if (widget.active) {
+        widget.onPlaybackStateChanged(controller?.isPlaying ?? false);
+      }
       _scheduleChromeHide();
     }
     final wideVideo = (controller?.aspectRatio ?? 0) > 1.2;

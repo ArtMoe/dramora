@@ -1,7 +1,7 @@
 abstract final class HgAppMetadata {
-  static const String version = '1.4.24';
-  static const String buildNumber = '29';
-  static const String versionLabel = 'v1.4.24 (29)';
+  static const String version = '1.4.25';
+  static const String buildNumber = '30';
+  static const String versionLabel = 'v1.4.25 (30)';
   static const String releaseTitle = '清屏与横屏播放体验优化版';
   static const List<String> releaseNotes = [
     '清屏后轻点画面恢复控件，视频继续播放。',
@@ -15,22 +15,34 @@ abstract final class HgAppMetadata {
 
   static const List<HgReleaseRecord> releaseHistory = [
     HgReleaseRecord(
+      version: 'v1.4.25',
+      buildNumber: '30',
+      date: '2026-11-22',
+      title: '播放常亮体验修复版',
+      features: [],
+      improvements: [
+        '播放视频时自动保持屏幕常亮，避免系统息屏打断观看。',
+        '暂停播放、切到后台或离开播放页时自动释放常亮，恢复系统正常息屏策略。',
+      ],
+      fixes: [
+        '修复播放中按系统超时自动熄屏的问题（Issue #7）。',
+      ],
+    ),
+    HgReleaseRecord(
       version: 'v1.4.24',
       buildNumber: '29',
       date: '2026-11-21',
       title: '清屏与横屏播放体验优化版',
       features: [],
       improvements: [
-        '清屏恢复与播放暂停分开，轻点恢复控件时不中断观看。',
-        '横屏支持轻点显隐控件、中央播放暂停和播放时自动收起。',
+        '页面进入时自动预加载可见封面与首屏资源，切换时首屏内容出现更快。',
+        '播放页加入更轻的清屏与横屏控制提示，非重要视觉元素在播放中淡出。',
         '暂停、按住屏幕、拖动进度或使用无障碍导航时保留控件。',
-        '横屏返回先回到竖屏，保持当前剧集与进度。',
-        '进度拖动期间暂停，完成后恢复之前的播放状态。',
       ],
       fixes: [
-        '修复水平快进失败后视频保持暂停的问题。',
-        '快进完成时仅恢复当前剧集，保持切集后的播放状态。',
-        '修复静音图标未随音量切换更新、宽屏视频识别后全屏入口未显示的问题。',
+        '修复播放器详情在音量切换后出现布局溢出的问题。',
+        '修复横屏按钮靠近屏幕边缘时的点击区域与遮挡问题。',
+        '修复偶发的播放器封面闪烁和切集加载竞态。',
       ],
     ),
     HgReleaseRecord(

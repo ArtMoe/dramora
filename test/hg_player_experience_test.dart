@@ -7,6 +7,7 @@ import 'package:guomu/hg/api/hg_api.dart';
 import 'package:guomu/hg/auth/app_controllers.dart';
 import 'package:guomu/hg/models/hg_models.dart';
 import 'package:guomu/hg/pages/short_video_page.dart';
+import 'package:guomu/hg/services/hg_wake_lock_service.dart';
 import 'package:guomu/hg/theme/hg_theme.dart';
 import 'package:guomu/hg/utils/hg_download_manager.dart';
 import 'package:guomu/hg/utils/hg_local_history.dart';
@@ -113,12 +114,18 @@ void main() {
   late _VideoPlatform platform;
   late VideoPlayerPlatform previous;
   final systemCalls = <MethodCall>[];
+  final wakeLockCalls = <bool>[];
 
-  setUp(() {
+  setUp(() async {
     previous = VideoPlayerPlatform.instance;
     platform = _VideoPlatform();
     VideoPlayerPlatform.instance = platform;
     systemCalls.clear();
+    wakeLockCalls.clear();
+    await HgWakeLockService.resetForTesting();
+    HgWakeLockService.toggleForTesting = ({required bool enable}) async {
+      wakeLockCalls.add(enable);
+    };
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(SystemChannels.platform, (call) async {
           systemCalls.add(call);
@@ -130,6 +137,7 @@ void main() {
       await stream.close();
     }
     VideoPlayerPlatform.instance = previous;
+    await HgWakeLockService.resetForTesting();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(SystemChannels.platform, null);
   });
@@ -367,4 +375,42 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
     },
   );
+
+  test('wake lock applies only the latest requested state', () async {
+    await HgWakeLockService.update(playing: false, applicationActive: true);
+    await HgWakeLockService.update(playing: true, applicationActive: true);
+    await HgWakeLockService.update(playing: true, applicationActive: true);
+    await HgWakeLockService.update(playing: false, applicationActive: true);
+    expect(wakeLockCalls, [false, true, false]);
+  });
+
+  testWidgets('screen stays awake only while visible episode is playing', (
+    tester,
+  ) async {
+    await mount(tester);
+    expect(HgWakeLockService.requested, isTrue);
+    expect(wakeLockCalls.last, isTrue);
+
+    await tapSurface(tester);
+    await tester.pump();
+    expect(platform.playing[1], isFalse);
+    expect(HgWakeLockService.requested, isFalse);
+    expect(wakeLockCalls.last, isFalse);
+
+    await tester.tap(find.byKey(const ValueKey('hg-playback-play-button')));
+    await tester.pump();
+    expect(platform.playing[1], isTrue);
+    expect(HgWakeLockService.requested, isTrue);
+    expect(wakeLockCalls.last, isTrue);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    expect(HgWakeLockService.requested, isFalse);
+    expect(wakeLockCalls.last, isFalse);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(HgWakeLockService.requested, isTrue);
+    expect(wakeLockCalls.last, isTrue);
+  });
 }
