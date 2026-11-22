@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/foundation.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
@@ -14,7 +12,7 @@ abstract final class HgWakeLockService {
   static bool _playbackActive = false;
   static bool _applicationActive = true;
   static bool? _applied;
-  static Future<void> _tail = Future<void>.value();
+  static int _version = 0;
 
   @visibleForTesting
   static Future<void> Function({required bool enable})? toggleForTesting;
@@ -27,37 +25,33 @@ abstract final class HgWakeLockService {
   }) {
     _playbackActive = playing;
     _applicationActive = applicationActive;
-    return _sync();
+    return _apply();
   }
 
   static Future<void> release() =>
       update(playing: false, applicationActive: false);
 
-  static Future<void> _sync() {
-    _tail = _tail.catchError((Object _) {}).then((_) async {
-      final next = requested;
-      if (_applied == next) return;
-      try {
-        final toggle = toggleForTesting ?? WakelockPlus.toggle;
-        await toggle(enable: next);
-        _applied = next;
-      } catch (error) {
-        // A container or platform without a wake lock must never interrupt
-        // video playback, but the state remains unapplied so a later lifecycle
-        // event can retry.
-        debugPrint('Guomu wake lock skipped: $error');
-      }
-    });
-    return _tail;
+  static Future<void> _apply() async {
+    final version = ++_version;
+    final next = requested;
+    if (_applied == next) return;
+    try {
+      final toggle = toggleForTesting ?? WakelockPlus.toggle;
+      await toggle(enable: next);
+      if (version == _version) _applied = next;
+    } catch (error) {
+      // A container or platform without a wake lock must never interrupt
+      // video playback. A later lifecycle event can retry the state.
+      debugPrint('Guomu wake lock skipped: $error');
+    }
   }
 
   @visibleForTesting
   static Future<void> resetForTesting() async {
-    await _tail.catchError((Object _) {});
     _playbackActive = false;
     _applicationActive = true;
     _applied = null;
-    _tail = Future<void>.value();
+    _version++;
     toggleForTesting = null;
   }
 }

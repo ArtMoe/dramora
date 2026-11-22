@@ -732,6 +732,12 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
   int _pointersDown = 0;
   bool _resumeAfterScrub = false;
   Future<void>? _pauseForSeek;
+  bool? _doubleTapForward;
+  Timer? _doubleTapFeedbackTimer;
+  DateTime? _lastEdgeTapAt;
+  Offset? _lastEdgeTapPosition;
+  Timer? _edgeTapTimer;
+  bool _suppressNextEdgeTap = false;
 
   @override
   void initState() {
@@ -802,6 +808,95 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
     } else {
       unawaited(_togglePlayback());
     }
+  }
+
+  void _surfaceTapUp(TapUpDetails details) {
+    if (_suppressNextEdgeTap) {
+      _suppressNextEdgeTap = false;
+      return;
+    }
+    final width = context.size?.width ?? MediaQuery.sizeOf(context).width;
+    if (width <= 0) {
+      _surfaceTap();
+      return;
+    }
+    final dx = details.localPosition.dx;
+    final isEdge = dx < width * 0.25 || dx > width * 0.75;
+    if (!isEdge) {
+      _surfaceTap();
+      return;
+    }
+    _edgeTapTimer?.cancel();
+    _edgeTapTimer = Timer(const Duration(milliseconds: 280), () {
+      if (!mounted) return;
+      _edgeTapTimer = null;
+      _lastEdgeTapAt = null;
+      _lastEdgeTapPosition = null;
+      _surfaceTap();
+    });
+  }
+
+  void _handlePointerUpForDoubleTap(PointerUpEvent event) {
+    if (!widget.active) return;
+    final width = context.size?.width ?? MediaQuery.sizeOf(context).width;
+    if (width <= 0) return;
+    final dx = event.localPosition.dx;
+    final isLeft = dx < width * 0.25;
+    final isRight = dx > width * 0.75;
+    if (!isLeft && !isRight) return;
+    final now = DateTime.now();
+    final lastAt = _lastEdgeTapAt;
+    final lastPosition = _lastEdgeTapPosition;
+    if (lastAt != null &&
+        lastPosition != null &&
+        now.difference(lastAt) < const Duration(milliseconds: 300) &&
+        (event.localPosition - lastPosition).distance < 44) {
+      _lastEdgeTapAt = null;
+      _lastEdgeTapPosition = null;
+      _edgeTapTimer?.cancel();
+      _edgeTapTimer = null;
+      _suppressNextEdgeTap = true;
+      unawaited(_handleDoubleTapAt(event.localPosition, isRight));
+      return;
+    }
+    _lastEdgeTapAt = now;
+    _lastEdgeTapPosition = event.localPosition;
+  }
+
+  Future<void> _handleDoubleTapAt(Offset position, bool forward) async {
+    final controller = _controller;
+    if (controller == null ||
+        !controller.isReady ||
+        _scrubbing ||
+        _seeking ||
+        _horizontalSeeking ||
+        _speedBoosting ||
+        controller.duration <= Duration.zero) {
+      return;
+    }
+    const step = Duration(seconds: 10);
+    final rawTarget = forward
+        ? controller.position + step
+        : controller.position - step;
+    final target = Duration(
+      milliseconds: rawTarget.inMilliseconds.clamp(
+        0,
+        controller.duration.inMilliseconds,
+      ),
+    );
+    HapticFeedback.mediumImpact();
+    final resume = controller.isPlaying;
+    _doubleTapFeedbackTimer?.cancel();
+    setState(() {
+      _doubleTapForward = forward;
+      _seeking = true;
+      _scrubPosition = target;
+    });
+    _doubleTapFeedbackTimer = Timer(const Duration(milliseconds: 700), () {
+      if (mounted) setState(() => _doubleTapForward = null);
+    });
+    _pauseForSeek = resume ? controller.pause() : null;
+    await _commitSeek(controller, target, resume);
   }
 
   Future<void> _openEpisodes() async {
@@ -1105,6 +1200,8 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
   @override
   void dispose() {
     _chromeTimer?.cancel();
+    _doubleTapFeedbackTimer?.cancel();
+    _edgeTapTimer?.cancel();
     final controller = _controller;
     if (controller != null) {
       _emitProgress(force: true);
@@ -1586,7 +1683,8 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
         _pointersDown++;
         _chromeTimer?.cancel();
       },
-      onPointerUp: (_) {
+      onPointerUp: (event) {
+        _handlePointerUpForDoubleTap(event);
         if (_pointersDown > 0) _pointersDown--;
         _scheduleChromeHide();
       },
@@ -1640,7 +1738,7 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
                 child: GestureDetector(
                   key: const ValueKey('hg-player-surface'),
                   behavior: HitTestBehavior.opaque,
-                  onTap: _surfaceTap,
+                  onTapUp: _surfaceTapUp,
                   onHorizontalDragStart: _startHorizontalSeek,
                   onHorizontalDragUpdate: _updateHorizontalSeek,
                   onHorizontalDragEnd: _finishHorizontalSeek,
@@ -1793,6 +1891,20 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
                   ),
                 ),
               ),
+            if (_doubleTapForward != null)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: Align(
+                    alignment: _doubleTapForward!
+                        ? Alignment.centerRight
+                        : Alignment.centerLeft,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 34),
+                      child: _DoubleTapSeekHud(forward: _doubleTapForward!),
+                    ),
+                  ),
+                ),
+              ),
             if (_speedBoosting)
               Positioned(
                 top: MediaQuery.paddingOf(context).top + 70,
@@ -1833,6 +1945,44 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _DoubleTapSeekHud extends StatelessWidget {
+  const _DoubleTapSeekHud({required this.forward});
+
+  final bool forward;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.64),
+        borderRadius: BorderRadius.circular(100),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            forward ? Icons.fast_forward_rounded : Icons.fast_rewind_rounded,
+            color: Colors.white,
+            size: 21,
+          ),
+          const SizedBox(width: 7),
+          Text(
+            forward ? '+10 秒' : '-10 秒',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              fontFeatures: [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
       ),
     );
   }

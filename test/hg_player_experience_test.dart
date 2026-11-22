@@ -201,15 +201,29 @@ void main() {
     await tester.pump(const Duration(milliseconds: 250));
     expect(platform.playing[1], isTrue);
     await tapSurface(tester);
-    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pump(const Duration(milliseconds: 350));
     expect(find.bySemanticsLabel('清屏观看'), findsOneWidget);
     expect(platform.playing[1], isTrue);
     await tapSurface(tester);
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
     expect(platform.playing[1], isFalse);
     await tester.tap(find.byKey(const ValueKey('hg-playback-play-button')));
     await tester.pump();
     expect(platform.playing[1], isTrue);
+  });
+
+  testWidgets('double tap right seeks forward ten seconds', (tester) async {
+    await mount(tester);
+    final right = Offset(320, 300);
+    await tester.tapAt(right);
+    await tester.pump(const Duration(milliseconds: 60));
+    await tester.tapAt(right);
+    await tester.pump();
+    await tester.pump();
+    expect(platform.seeks, isNotEmpty);
+    expect(platform.seeks.last, const Duration(seconds: 10));
+    expect(find.text('+10 秒'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 1));
   });
 
   testWidgets('landscape taps toggle controls; play button controls playback', (
@@ -221,7 +235,7 @@ void main() {
     expect(find.bySemanticsLabel('选集').hitTestable(), findsNothing);
     expect(platform.playing[1], isTrue);
     await tapSurface(tester);
-    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pump(const Duration(milliseconds: 350));
     expect(find.bySemanticsLabel('选集'), findsOneWidget);
     expect(platform.playing[1], isTrue);
     await tester.tap(find.byKey(const ValueKey('hg-landscape-play-button')));
@@ -343,7 +357,7 @@ void main() {
   testWidgets('seeking a paused video keeps it paused', (tester) async {
     await mount(tester);
     await tapSurface(tester);
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
     expect(platform.playing[1], isFalse);
     final slider = tester.widget<Slider>(find.byType(Slider).first);
     slider.onChangeStart!(0.3);
@@ -392,7 +406,7 @@ void main() {
     expect(wakeLockCalls.last, isTrue);
 
     await tapSurface(tester);
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
     expect(platform.playing[1], isFalse);
     expect(HgWakeLockService.requested, isFalse);
     expect(wakeLockCalls.last, isFalse);

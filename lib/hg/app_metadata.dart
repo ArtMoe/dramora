@@ -1,19 +1,28 @@
 abstract final class HgAppMetadata {
-  static const String version = '1.4.25';
-  static const String buildNumber = '30';
-  static const String versionLabel = 'v1.4.25 (30)';
-  static const String releaseTitle = '清屏与横屏播放体验优化版';
+  static const String version = '1.4.26';
+  static const String buildNumber = '31';
+  static const String versionLabel = 'v1.4.26 (31)';
+  static const String releaseTitle = '播放常亮与双击快进体验版';
   static const List<String> releaseNotes = [
-    '清屏后轻点画面恢复控件，视频继续播放。',
-    '横屏轻点显示或隐藏控件，通过中央按钮播放、暂停。',
-    '横屏播放时控件自动收起，暂停、拖动与无障碍导航时保持可用。',
-    '横屏返回先退出全屏，保留当前剧集和播放进度。',
-    '拖动进度时暂停，松手跳转后恢复之前的播放状态。',
-    '修复快进失败后意外停播的问题，快进完成时保留切集后的播放状态。',
-    '修复静音图标未及时更新，以及宽屏视频识别后的全屏入口显示问题。',
+    '播放视频时自动保持屏幕常亮，暂停、切后台或离开播放页后自动恢复系统息屏策略。',
+    '播放页支持双击画面左右两侧快退或快进 10 秒，并显示边缘反馈。',
+    '双击快进、水平拖动和进度条共用同一套播放状态恢复逻辑，切集后不会恢复旧视频。',
+    '修复播放中按系统超时自动熄屏的问题（Issue #7）。',
   ];
 
   static const List<HgReleaseRecord> releaseHistory = [
+    HgReleaseRecord(
+      version: 'v1.4.26',
+      buildNumber: '31',
+      date: '2026-11-22',
+      title: '播放常亮与双击快进体验版',
+      features: ['播放页支持双击画面左右两侧快退或快进 10 秒。'],
+      improvements: [
+        '双击快进、水平拖动和进度条共用同一套播放状态恢复逻辑。',
+        '双击反馈显示在相反一侧边缘，减少对观看区域的遮挡。',
+      ],
+      fixes: ['修复播放器常亮状态在测试与生命周期切换时可能阻塞的问题。', '保持播放时屏幕常亮，暂停或离开播放自动释放。'],
+    ),
     HgReleaseRecord(
       version: 'v1.4.25',
       buildNumber: '30',
@@ -24,9 +33,7 @@ abstract final class HgAppMetadata {
         '播放视频时自动保持屏幕常亮，避免系统息屏打断观看。',
         '暂停播放、切到后台或离开播放页时自动释放常亮，恢复系统正常息屏策略。',
       ],
-      fixes: [
-        '修复播放中按系统超时自动熄屏的问题（Issue #7）。',
-      ],
+      fixes: ['修复播放中按系统超时自动熄屏的问题（Issue #7）。'],
     ),
     HgReleaseRecord(
       version: 'v1.4.24',
