@@ -41,7 +41,8 @@ class GuomuApp extends StatelessWidget {
         ),
         ChangeNotifierProvider<AuthController>(
           create: (context) =>
-              AuthController(context.read<HgApi>(), preferences)..restore(),
+              AuthController(context.read<HgApi>(), preferences)
+                ..restore(force: true),
         ),
         ChangeNotifierProvider<HgDownloadManager>(
           create: (context) =>

@@ -60,12 +60,12 @@ class AuthController extends ChangeNotifier with WidgetsBindingObserver {
 
   Map<String, int> get counts => _user?.counts ?? const {};
 
-  Future<void> restore() async {
+  Future<void> restore({bool force = false}) async {
     if (!isLoggedIn || _restoring) return;
     // A freshly issued token and a recently verified cached session should not
     // be immediately rejected by a transient edge response when the app
     // resumes. Authenticated actions still confirm the session on 401.
-    if (_user != null && _sessionCheckedRecently()) {
+    if (!force && _user != null && _sessionCheckedRecently()) {
       return;
     }
     _restoring = true;

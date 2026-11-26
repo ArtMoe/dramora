@@ -147,6 +147,23 @@ void main() {
     expect(api.meCalls, 0);
   });
 
+  test('a cold start force-validates a recently checked session', () async {
+    SharedPreferences.setMockInitialValues({
+      'guomu.hg.token': 'fresh-token',
+      'guomu.hg.user': jsonEncode(_staleUser.toJson()),
+      'guomu.hg.session.checked_at': DateTime.now().millisecondsSinceEpoch,
+    });
+    final prefs = await SharedPreferences.getInstance();
+    final api = _RecoveryApi();
+    final auth = AuthController(api, prefs);
+    addTearDown(auth.dispose);
+
+    await auth.restore(force: true);
+
+    expect(api.meCalls, 1);
+    expect(auth.isLoggedIn, isTrue);
+  });
+
   testWidgets('an expired follow re-prompts login and retries once', (
     tester,
   ) async {
