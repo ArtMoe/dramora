@@ -2,27 +2,27 @@
   <img src="assets/brand/guomu.svg" width="112" height="112" alt="果幕 Logo" />
 </p>
 
-<h1 align="center">果幕</h1>
+<h1 align="center">果幕 · Dramora</h1>
 
 <p align="center">
-  <strong>黄果短剧第三方 Flutter 客户端</strong><br />
+  <strong>果幕（Dramora）· 黄果短剧第三方 Flutter 客户端</strong><br />
 </p>
 
 <p align="center">
-  <a href="https://github.com/DearLicy/guomu/actions/workflows/build.yaml"><img alt="Build" src="https://github.com/DearLicy/guomu/actions/workflows/build.yaml/badge.svg" /></a>
-  <a href="https://github.com/DearLicy/guomu/releases"><img alt="Release" src="https://img.shields.io/github/v/release/DearLicy/guomu?display_name=tag" /></a>
+  <a href="https://github.com/DearLicy/dramora/actions/workflows/build.yaml"><img alt="Build" src="https://github.com/DearLicy/dramora/actions/workflows/build.yaml/badge.svg" /></a>
+  <a href="https://github.com/DearLicy/dramora/releases"><img alt="Release" src="https://img.shields.io/github/v/release/DearLicy/dramora?display_name=tag" /></a>
   <img alt="Flutter" src="https://img.shields.io/badge/Flutter-3.35.1-02569B?logo=flutter" />
   <img alt="iOS" src="https://img.shields.io/badge/iOS-15%2B-111111?logo=apple" />
   <img alt="Android" src="https://img.shields.io/badge/Android-24%2B-3DDC84?logo=android&logoColor=white" />
-  <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/DearLicy/guomu" /></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/DearLicy/dramora" /></a>
 </p>
 
 <p align="center">
-  <a href="https://dearlicy.github.io/guomu/"><strong>在线预览</strong></a>
+  <a href="https://dearlicy.github.io/dramora/"><strong>在线预览</strong></a>
   ·
-  <a href="https://github.com/DearLicy/guomu/releases"><strong>下载安装</strong></a>
+  <a href="https://github.com/DearLicy/dramora/releases"><strong>下载安装</strong></a>
   ·
-  <a href="https://github.com/DearLicy/guomu/issues"><strong>问题反馈</strong></a>
+  <a href="https://github.com/DearLicy/dramora/issues"><strong>问题反馈</strong></a>
 </p>
 
 ---
@@ -37,9 +37,9 @@
 
 | 入口 | 地址 | 说明 |
 | --- | --- | --- |
-| Web 预览 | [dearlicy.github.io/guomu](https://dearlicy.github.io/guomu/) | GitHub Pages 只展示界面，不提供播放 |
-| 最新版本 | [GitHub Releases](https://github.com/DearLicy/guomu/releases) | APK 与未签名 IPA |
-| GitHub Actions | [Build Guomu](https://github.com/DearLicy/guomu/actions/workflows/build.yaml) | 自动校验、构建与发布 |
+| Web 预览 | [dearlicy.github.io/dramora](https://dearlicy.github.io/dramora/) | GitHub Pages 只展示界面，不提供播放 |
+| 最新版本 | [GitHub Releases](https://github.com/DearLicy/dramora/releases) | APK 与未签名 IPA |
+| GitHub Actions | [Build Dramora](https://github.com/DearLicy/dramora/actions/workflows/build.yaml) | 自动校验、构建与发布 |
 
 > iOS 安装包不包含签名，请使用 Sideloadly、AltStore、TrollStore 或自己的 Apple Developer 证书签名后安装。
 
@@ -99,6 +99,7 @@
 - iOS 灵动岛和锁屏实时活动直接使用原生 ActivityKit 传递短剧封面；通知栏播放控件同步实时进度、倍速与封面
 - iOS 缓存使用后台任务与通知进度，缓存期间会显示封面缩略图；应用被系统强制结束后会在下次启动恢复未完成缓存
 - GitHub API 在线更新：Android 应用内下载、进度显示与系统安装，iOS 提供手动更新说明
+- GitHub 远程公告：启动与回前台检查，支持公告中心、系统通知和“只看新公告”提醒
 - Tab 页面预加载与微光骨架动画
 - 多数据源管理、自动发现、测速排序与故障回退
 - GitHub Actions 每 4 小时同步官方最新地址，通过内容接口验证后才更新清单；设备仍按自己的网络测速选择
@@ -107,7 +108,7 @@
 
 ## 产品原则
 
-数据源清单同时提供 [GitHub API JSON 入口](https://api.github.com/repos/DearLicy/guomu/contents/assets/data/source_manifest.json?ref=main) 和 [Raw 入口](https://raw.githubusercontent.com/DearLicy/guomu/main/assets/data/source_manifest.json)。客户端优先通过 API 获取，兼容 API 默认的 Base64 JSON 与原始 JSON 响应，GitHub 网页无法打开时也可以独立尝试 API。
+数据源清单同时提供 [GitHub API JSON 入口](https://api.github.com/repos/DearLicy/dramora/contents/assets/data/source_manifest.json?ref=main) 和 [Raw 入口](https://raw.githubusercontent.com/DearLicy/dramora/main/assets/data/source_manifest.json)。客户端优先通过 API 获取，兼容 API 默认的 Base64 JSON 与原始 JSON 响应，GitHub 网页无法打开时也可以独立尝试 API。
 
 1. **内容优先**：让封面、标题和播放路径成为视觉主线，而不是层层说明卡。
 2. **动作就近**：播放、追剧、选集和互动放在用户需要它们的上下文中。
@@ -122,7 +123,7 @@
 flowchart LR
     UI[Flutter UI<br/>Pages & Widgets]
     State[Controllers<br/>Auth / Theme / Source]
-    API[HgApi<br/>Edge Envelope]
+    API[HgApi<br/>Direct site API]
     Cache[Persistent Cache<br/>SharedPreferences]
     Media[HLS Media Cache<br/>video_player / hls.js]
     Source[User-selected<br/>Huangguo Source]
@@ -135,7 +136,7 @@ flowchart LR
     Media --> Source
 ```
 
-原生客户端与 Web 预览都直接请求当前数据源的真实接口；旧版边缘信封已停用，不再依赖临时 CORS 隧道：
+原生客户端与 Web 预览都直接请求当前数据源的真实接口，不依赖业务服务端或临时 CORS 隧道：
 
 ```text
 GET  /api/home
@@ -169,8 +170,8 @@ POST /api/videos/{id}/episodes/{ep}/playback
 - Android `24+`
 
 ```bash
-git clone https://github.com/DearLicy/guomu.git
-cd guomu
+git clone https://github.com/DearLicy/dramora.git
+cd dramora
 flutter pub get
 flutter analyze
 flutter test
@@ -187,13 +188,24 @@ flutter run --dart-define=HG_API_BASE=https://huangguoai.com
 
 ### GitHub 自动构建
 
-每次推送 `main` 或手动运行 **Build Guomu**，流水线会执行：
+每次推送 `main` 或手动运行 **Build Dramora**，流水线会执行：
 
 - `flutter analyze` 与 `flutter test`
 - Web Release 构建并部署 GitHub Pages
 - Android Release APK 构建
 - macOS runner 构建未签名 IPA
 - 创建或更新对应版本 GitHub Release，并上传 APK 与 IPA
+
+### 发布远程公告
+
+手动运行 **Publish announcement** 工作流即可新增公告。公告文件位于 `assets/data/announcements.json`，客户端会依次通过 GitHub Contents API、jsDelivr、Raw GitHub 和内置资源读取，并在设备本机保存上次成功结果。
+
+- `notice`：一般公告
+- `activity`：活动通知
+- `project`：新项目或新产品通知
+- `maintenance`：维护通知
+
+公告发布使用独立 ID 去重。用户选择“今日不再提醒”后，当前公告会在次日重新具备提醒条件；选择“下次再通知我”后，只有发布不同 ID 的新公告才会再次提醒。GitHub Actions 负责发布 JSON，已安装客户端通过用户网络主动检查；在没有 FCM/APNs 服务端的前提下，不承诺应用被强制结束后仍能即时收到系统通知。
 
 ### 本地构建 Web
 
@@ -212,7 +224,7 @@ flutter run --dart-define=HG_API_BASE=https://huangguoai.com
 产物：
 
 ```text
-build/ios/ipa/Guomu-<version>-unsigned.ipa
+build/ios/ipa/Dramora-<version>-unsigned.ipa
 ```
 
 ## 目录结构
@@ -225,6 +237,7 @@ lib/
     ├── auth/      # 会话、互动、主题与数据源状态
     ├── models/    # 内容、用户、评论、专题等模型
     ├── pages/     # 首页、剧场、吃瓜、榜单、我的、播放器
+    ├── services/  # 公告、通知、后台任务与系统能力
     ├── theme/     # 果幕视觉系统
     ├── utils/     # 播放历史、媒体缓存、格式化
     └── widgets/   # 通用卡片、骨架、分享与播放器组件
@@ -246,6 +259,7 @@ lib/
 - [x] 多数据源自动发现
 - [x] 数据源健康评分、测速自动选源与只读请求回退
 - [x] GitHub Pages、APK、IPA 自动化发布
+- [x] GitHub 远程公告、活动通知与公告中心
 - [x] 整部短剧离线缓存、下载队列与追更自动缓存
 - [ ] 播放器画质、字幕与音轨选择
 - [ ] 平板与横屏布局专项优化

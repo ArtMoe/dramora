@@ -107,7 +107,7 @@ class HgUpdateCheckResult {
 
 abstract final class HgUpdateService {
   static const releasesApi =
-      'https://api.github.com/repos/DearLicy/guomu/releases/latest';
+      'https://api.github.com/repos/DearLicy/dramora/releases/latest';
 
   static Future<HgUpdateCheckResult> checkLatest() async {
     final dio = Dio(

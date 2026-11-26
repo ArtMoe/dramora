@@ -8,7 +8,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api/hg_api.dart';
 import 'auth/app_controllers.dart';
+import 'navigation/hg_route_observer.dart';
 import 'pages/root_shell.dart';
+import 'services/hg_announcement_service.dart';
 import 'utils/hg_download_manager.dart';
 import 'theme/hg_theme.dart';
 
@@ -50,6 +52,9 @@ class GuomuApp extends StatelessWidget {
         ),
         ChangeNotifierProvider<ThemeController>(
           create: (_) => ThemeController(preferences),
+        ),
+        ChangeNotifierProvider<HgAnnouncementController>(
+          create: (_) => HgAnnouncementController(preferences)..bootstrap(),
         ),
       ],
       child: const _GuomuMaterialApp(),
@@ -99,11 +104,12 @@ class _GuomuMaterialApp extends StatelessWidget {
     final themeMode = context.watch<ThemeController>().mode;
     context.watch<SourceController>();
     return MaterialApp(
-      title: '果幕 · 黄果短剧',
+      title: '果幕 · Dramora',
       debugShowCheckedModeBanner: false,
       theme: buildHgTheme(Brightness.light),
       darkTheme: buildHgTheme(Brightness.dark),
       themeMode: themeMode,
+      navigatorObservers: [hgRouteObserver],
       scrollBehavior: const _HgScrollBehavior(),
       locale: const Locale('zh', 'CN'),
       supportedLocales: const [Locale('zh', 'CN'), Locale('en')],

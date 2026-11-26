@@ -18,7 +18,7 @@ abstract final class HgUpdateDownload {
     Directory? directory,
   }) async {
     if (!RegExp(
-      r'^https://api\.github\.com/repos/DearLicy/guomu/releases/assets/\d+$',
+      r'^https://api\.github\.com/repos/DearLicy/dramora/releases/assets/\d+$',
       caseSensitive: false,
     ).hasMatch(asset.apiUrl)) {
       throw const HgUpdateException('安装包缺少有效的 GitHub API 下载地址，请稍后重新检查更新');

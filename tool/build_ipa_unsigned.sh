@@ -14,7 +14,7 @@ PAYLOAD_DIR="$OUT_DIR/Payload"
 APP_COPY="$PAYLOAD_DIR/Runner.app"
 VERSION="$(sed -n 's/^version:[[:space:]]*//p' "$ROOT/pubspec.yaml" | cut -d+ -f1)"
 BUILD_NUMBER="$(sed -n 's/^version:[[:space:]]*//p' "$ROOT/pubspec.yaml" | cut -d+ -f2)"
-IPA_NAME="Guomu-${VERSION}-unsigned.ipa"
+IPA_NAME="Dramora-${VERSION}-unsigned.ipa"
 
 # shellcheck source=/dev/null
 source "$ROOT/tool/_project_tmp_env.sh"

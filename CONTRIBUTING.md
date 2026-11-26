@@ -5,7 +5,7 @@
 ## 提交 Issue 前
 
 1. 先搜索现有 Issue，避免重复反馈。
-2. 确认使用的是 [最新 Release](https://github.com/DearLicy/guomu/releases)。
+2. 确认使用的是 [最新 Release](https://github.com/DearLicy/dramora/releases)。
 3. 数据源问题请在设置页执行“同步地址”和“线路测速”，再附上当前线路与错误提示。
 4. 不要提交账号密码、Bearer token、Cookie、私钥、签名证书或完整请求头。
 

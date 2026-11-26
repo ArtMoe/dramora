@@ -1,17 +1,38 @@
 abstract final class HgAppMetadata {
-  static const String version = '1.4.37';
-  static const String buildNumber = '43';
-  static const String versionLabel = 'v1.4.37 (43)';
-  static const String releaseTitle = '登录与播放兼容修复版';
+  static const String version = '1.4.38';
+  static const String buildNumber = '44';
+  static const String versionLabel = 'v1.4.38 (44)';
+  static const String releaseTitle = '远程公告与 Dramora 品牌版';
   static const List<String> releaseNotes = [
-    '修复登录后播放接口因携带账号凭据出现“播放参数无效”的问题。',
-    '账号相关接口继续使用黄果当前真实鉴权，登录态下点赞、收藏、消息和列表请求保持正常。',
-    '吃瓜文章内视频补齐播放/暂停、拖动进度、倍速与全屏能力。',
-    '无可用数据源时的恢复面板现在可以关闭，并可在同步或测速后直接继续使用。',
-    '登录凭据继续保存在设备，会话失效时仍会提示重新登录。',
+    '新增 GitHub 远程公告中心，可发布新版本、新项目、活动与维护通知。',
+    '公告支持“今日不再提醒”和“下次再通知我”，只有新公告才会再次提醒。',
+    '启动、回到前台和系统允许的后台任务会检查公告，并支持通知点击查看详情。',
+    '公告通过 GitHub API、jsDelivr 和 Raw 多级回退，并保留上次成功获取的记录。',
+    '项目英文品牌与仓库名统一为 Dramora，中文产品名继续使用果幕。',
   ];
 
   static const List<HgReleaseRecord> releaseHistory = [
+    HgReleaseRecord(
+      version: 'v1.4.38',
+      buildNumber: '44',
+      date: '2026-11-26',
+      title: '远程公告与 Dramora 品牌版',
+      features: [
+        '新增 GitHub 远程公告中心，统一发布新版本、新项目、活动和维护通知。',
+        '公告面板支持“今日不再提醒”和“下次再通知我”，新公告使用独立 ID 再次提醒。',
+        '公告通知支持点击打开对应内容，并可在设置页单独关闭公告系统通知。',
+      ],
+      improvements: [
+        '启动、回到前台与后台任务都会检查公告，前台检查间隔不少于 30 分钟，不阻塞首屏。',
+        '公告依次尝试 GitHub API、jsDelivr、Raw 和内置资源，成功记录保存在设备本机。',
+        '设置页新增公告与活动通知开关和公告中心，未读、已读、今日稍后与已结束状态清晰显示。',
+        '项目英文品牌与 GitHub 仓库名统一为 Dramora，中文产品名仍为果幕，应用包标识保持不变。',
+      ],
+      fixes: [
+        '公告网络失败时保留上次有效内容，不把临时断网误判为已读。',
+        '公告弹窗与版本更新、版本记录、数据源恢复等现有面板互斥，不在播放页面中断观看。',
+      ],
+    ),
     HgReleaseRecord(
       version: 'v1.4.37',
       buildNumber: '43',
@@ -25,10 +46,7 @@ abstract final class HgAppMetadata {
         '登录鉴权改用黄果当前接口支持的 token 查询参数，收藏、历史、消息和资料请求使用同一套真实鉴权。',
         '底部导航选中高亮改为完整胶囊，同时覆盖图标与文字。',
       ],
-      fixes: [
-        '修复登录成功后立即退出登录、账号状态无法跨启动保留的问题。',
-        '修复已知失效凭据启动时仍显示登录状态的问题。',
-      ],
+      fixes: ['修复登录成功后立即退出登录、账号状态无法跨启动保留的问题。', '修复已知失效凭据启动时仍显示登录状态的问题。'],
     ),
     HgReleaseRecord(
       version: 'v1.4.35',

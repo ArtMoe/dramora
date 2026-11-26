@@ -1,4 +1,4 @@
-name: Build Guomu
+name: Build Dramora
 
 on:
   push:
@@ -33,6 +33,8 @@ jobs:
       - run: flutter analyze
       - run: flutter test
       - run: python3 -m unittest discover -s tool/tests -p 'test_sync_sources.py'
+      - run: python3 -m unittest discover -s tool/tests -p 'test_publish_announcement.py'
+      - run: python3 tool/publish_announcement.py validate assets/data/announcements.json
 
   build-web:
     needs: validate
@@ -52,7 +54,7 @@ jobs:
             --release \
             --pwa-strategy=none \
             --no-wasm-dry-run \
-            --base-href="/guomu/" \
+            --base-href="/dramora/" \
             --dart-define="HG_API_BASE=$HG_API_BASE" \
             --dart-define="HG_WEB_PREVIEW_ONLY=true"
           touch build/web/.nojekyll
@@ -115,18 +117,18 @@ jobs:
           flutter build apk --release \
             --dart-define="HG_API_BASE=$HG_API_BASE"
           VERSION="$(sed -n 's/^version:[[:space:]]*//p' pubspec.yaml | cut -d+ -f1)"
-          cp build/app/outputs/flutter-apk/app-release.apk "Guomu-${VERSION}.apk"
+          cp build/app/outputs/flutter-apk/app-release.apk "Dramora-${VERSION}.apk"
       - name: Verify APK signature
         run: |
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
-          "$APKSIGNER" verify --print-certs Guomu-*.apk
+          "$APKSIGNER" verify --print-certs Dramora-*.apk
       - name: Remove signing material
         if: always()
         run: rm -f android/key.properties .tmp/signing/guomu-release.p12
       - uses: actions/upload-artifact@v4
         with:
-          name: guomu-android
-          path: Guomu-*.apk
+          name: dramora-android
+          path: Dramora-*.apk
           if-no-files-found: error
 
   build-ios:
@@ -144,7 +146,7 @@ jobs:
         run: bash tool/build_ipa_unsigned.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: guomu-ios
+          name: dramora-ios
           path: build/ios/ipa/*.ipa
           if-no-files-found: error
 
@@ -159,7 +161,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: release-assets
-          pattern: guomu-*
+          pattern: dramora-*
           merge-multiple: true
       - name: Publish GitHub Release
         env:

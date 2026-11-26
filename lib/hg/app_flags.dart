@@ -4,4 +4,4 @@ const bool kHgWebPreviewOnly = bool.fromEnvironment(
 );
 
 const String kHgLatestReleaseUrl =
-    'https://github.com/DearLicy/guomu/releases/latest';
+    'https://github.com/DearLicy/dramora/releases/latest';

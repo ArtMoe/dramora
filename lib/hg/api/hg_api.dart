@@ -1184,12 +1184,12 @@ class HgApi {
   static const _githubSourceManifestUrl = String.fromEnvironment(
     'HG_GITHUB_SOURCE_MANIFEST_URL',
     defaultValue:
-        'https://api.github.com/repos/DearLicy/guomu/contents/assets/data/source_manifest.json?ref=main',
+        'https://api.github.com/repos/DearLicy/dramora/contents/assets/data/source_manifest.json?ref=main',
   );
 
   static const _githubSourceManifestMirrors = [
-    'https://cdn.jsdelivr.net/gh/DearLicy/guomu@main/assets/data/source_manifest.json',
-    'https://raw.githubusercontent.com/DearLicy/guomu/main/assets/data/source_manifest.json',
+    'https://cdn.jsdelivr.net/gh/DearLicy/dramora@main/assets/data/source_manifest.json',
+    'https://raw.githubusercontent.com/DearLicy/dramora/main/assets/data/source_manifest.json',
   ];
 
   static Future<List<String>> discoverSources({

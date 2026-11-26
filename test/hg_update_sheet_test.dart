@@ -15,14 +15,15 @@ const _result = HgUpdateCheckResult(
     tagName: 'v9.0.0',
     title: '新版本',
     body: '修复播放与连接问题',
-    htmlUrl: 'https://github.com/DearLicy/guomu/releases/latest',
+    htmlUrl: 'https://github.com/DearLicy/dramora/releases/latest',
     publishedAt: '',
     assets: [
       HgReleaseAsset(
         name: 'new.apk',
         downloadUrl: 'https://github.com/a.apk',
         size: 100,
-        apiUrl: 'https://api.github.com/repos/DearLicy/guomu/releases/assets/1',
+        apiUrl:
+            'https://api.github.com/repos/DearLicy/dramora/releases/assets/1',
       ),
     ],
   ),

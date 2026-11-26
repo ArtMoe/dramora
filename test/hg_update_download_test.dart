@@ -35,7 +35,8 @@ class _BinaryAdapter implements HttpClientAdapter {
   void close({bool force = false}) {}
 }
 
-const _url = 'https://api.github.com/repos/DearLicy/guomu/releases/assets/123';
+const _url =
+    'https://api.github.com/repos/DearLicy/dramora/releases/assets/123';
 HgReleaseAsset _asset({int size = 8, String digest = ''}) => HgReleaseAsset(
   name: 'Guomu-test.apk',
   downloadUrl: 'https://github.com/example.apk',

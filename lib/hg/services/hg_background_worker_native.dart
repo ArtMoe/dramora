@@ -4,6 +4,7 @@ import 'package:workmanager/workmanager.dart';
 
 import '../api/hg_api.dart';
 import '../utils/hg_download_manager.dart';
+import 'hg_announcement_service.dart';
 import 'hg_notification_service.dart';
 import 'hg_settings.dart';
 
@@ -13,19 +14,43 @@ const _taskName = 'com.guomu.huangguo.update-check';
 void hgBackgroundDispatcher() {
   Workmanager().executeTask((task, inputData) async {
     final prefs = await SharedPreferences.getInstance();
+    final backgroundUpdates =
+        prefs.getBool(HgSettingsKeys.backgroundUpdates) ?? true;
+    final announcementsEnabled =
+        prefs.getBool(HgSettingsKeys.announcementsEnabled) ?? true;
+    if (!backgroundUpdates && !announcementsEnabled) return true;
+
     final notifications =
         prefs.getBool(HgSettingsKeys.notificationsEnabled) ?? true;
-    final source =
-        prefs.getString('guomu.hg.source.active') ?? kHgDefaultBaseUrl;
-    final api = HgApi(baseUrl: source, preferences: prefs);
-    final manager = HgDownloadManager(api, prefs)
-      ..onUpdateFound = (task, count) async {
-        if (notifications) {
-          await HgNotificationService.showDramaUpdate(task, count);
-        }
-      };
-    await manager.restore();
-    await manager.checkForUpdates();
+    if (backgroundUpdates) {
+      final source =
+          prefs.getString('guomu.hg.source.active') ?? kHgDefaultBaseUrl;
+      final api = HgApi(baseUrl: source, preferences: prefs);
+      final manager = HgDownloadManager(api, prefs)
+        ..onUpdateFound = (task, count) async {
+          if (notifications) {
+            await HgNotificationService.showDramaUpdate(task, count);
+          }
+        };
+      await manager.restore();
+      await manager.checkForUpdates();
+    }
+
+    if (announcementsEnabled) {
+      final announcements = HgAnnouncementController(prefs);
+      await announcements.bootstrap();
+      await announcements.refresh(force: true);
+      final announcement = announcements.nextForNotification;
+      if (announcement != null) {
+        await HgNotificationService.showAnnouncement(
+          id: announcement.id,
+          title: announcement.title,
+          body: announcement.body,
+          important: announcement.isImportant,
+        );
+        await announcements.markNotified(announcement.id);
+      }
+    }
     return true;
   });
 }
@@ -43,7 +68,11 @@ abstract final class HgBackgroundWorker {
   static Future<void> syncSchedule() async {
     if (kIsWeb) return;
     final prefs = await SharedPreferences.getInstance();
-    final enabled = prefs.getBool(HgSettingsKeys.backgroundUpdates) ?? true;
+    final downloadUpdates =
+        prefs.getBool(HgSettingsKeys.backgroundUpdates) ?? true;
+    final announcements =
+        prefs.getBool(HgSettingsKeys.announcementsEnabled) ?? true;
+    final enabled = downloadUpdates || announcements;
     try {
       if (enabled) {
         await Workmanager().registerPeriodicTask(

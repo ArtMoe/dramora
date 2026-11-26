@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        请先确认使用的是 [最新 Release](https://github.com/DearLicy/guomu/releases)，并搜索已有 Issue。
+        请先确认使用的是 [最新 Release](https://github.com/DearLicy/dramora/releases)，并搜索已有 Issue。
         账号密码、Bearer token、Cookie、私钥和签名材料请不要填写在这里。
   - type: input
     id: version

@@ -71,7 +71,7 @@ Future<void> maybeShowHgReviewPrompt(
                 height: 48,
                 child: FilledButton.icon(
                   onPressed: () =>
-                      _open(context, 'https://github.com/DearLicy/guomu'),
+                      _open(context, 'https://github.com/DearLicy/dramora'),
                   icon: const Icon(Icons.star_rounded, size: 19),
                   label: const Text('去 GitHub 点 Star'),
                 ),
@@ -83,7 +83,7 @@ Future<void> maybeShowHgReviewPrompt(
                     child: OutlinedButton(
                       onPressed: () => _open(
                         context,
-                        'https://github.com/DearLicy/guomu/issues',
+                        'https://github.com/DearLicy/dramora/issues',
                       ),
                       child: const Text('提交问题'),
                     ),

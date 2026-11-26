@@ -169,7 +169,17 @@ class _GuomuLaunchApp extends StatelessWidget {
                       letterSpacing: 1,
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'DRAMORA',
+                    style: TextStyle(
+                      color: Color(0x99FFFFFF),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 3.2,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   Text(
                     failed ? '本地数据初始化失败' : '正在准备你的剧场',
                     textAlign: TextAlign.center,

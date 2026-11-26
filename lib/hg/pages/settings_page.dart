@@ -8,6 +8,7 @@ import '../app_metadata.dart';
 import '../auth/app_controllers.dart';
 import '../theme/hg_theme.dart';
 import '../utils/hg_format.dart';
+import '../services/hg_announcement_service.dart';
 import '../services/hg_background_worker.dart';
 import '../services/hg_notification_service.dart';
 import '../services/hg_settings.dart';
@@ -17,6 +18,7 @@ import '../utils/hg_update_service.dart';
 import '../widgets/hg_adaptive_sheet.dart';
 import '../widgets/secure_cover.dart';
 import 'about_page.dart';
+import 'announcements_page.dart';
 import 'downloads_page.dart';
 import 'login_sheet.dart';
 import 'update_history_page.dart';
@@ -37,6 +39,7 @@ class _SettingsPageState extends State<SettingsPage> {
   String _cacheMessage = '';
   String _updateMessage = '';
   bool _notificationsEnabled = true;
+  bool _announcementsEnabled = true;
   bool _autoUpdateDownloads = true;
   bool _backgroundUpdates = true;
 
@@ -53,6 +56,8 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() {
       _notificationsEnabled =
           prefs.getBool(HgSettingsKeys.notificationsEnabled) ?? true;
+      _announcementsEnabled =
+          prefs.getBool(HgSettingsKeys.announcementsEnabled) ?? true;
       _autoUpdateDownloads =
           prefs.getBool(HgSettingsKeys.autoUpdateDownloads) ?? true;
       _backgroundUpdates =
@@ -80,6 +85,23 @@ class _SettingsPageState extends State<SettingsPage> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(HgSettingsKeys.autoUpdateDownloads, value);
     if (mounted) setState(() => _autoUpdateDownloads = value);
+  }
+
+  Future<void> _setAnnouncementsEnabled(bool value) async {
+    var next = value;
+    if (value) {
+      final granted = await HgNotificationService.requestPermissions();
+      if (!granted) {
+        next = false;
+        if (mounted) {
+          showHgSnack(context, '通知权限未开启，请在系统设置中允许果幕通知');
+        }
+      }
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(HgSettingsKeys.announcementsEnabled, next);
+    await HgBackgroundWorker.syncSchedule();
+    if (mounted) setState(() => _announcementsEnabled = next);
   }
 
   Future<void> _setBackgroundUpdates(bool value) async {
@@ -199,6 +221,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final source = context.watch<SourceController>();
     final theme = context.watch<ThemeController>();
     final downloads = context.watch<HgDownloadManager>();
+    final announcements = context.watch<HgAnnouncementController>();
     final user = auth.user;
     return Scaffold(
       backgroundColor: context.hgSurfaceLow,
@@ -300,6 +323,18 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
               const _SettingsDivider(),
               _SettingsRow(
+                leading: const _RowIcon(Icons.campaign_outlined),
+                title: '公告与活动通知',
+                subtitle: _announcementsEnabled
+                    ? '新版本、新项目、活动与维护公告'
+                    : '不接收公告系统通知，仍可在公告中心查看',
+                trailing: Switch.adaptive(
+                  value: _announcementsEnabled,
+                  onChanged: _setAnnouncementsEnabled,
+                ),
+              ),
+              const _SettingsDivider(),
+              _SettingsRow(
                 leading: const _RowIcon(Icons.admin_panel_settings_outlined),
                 title: '系统权限',
                 subtitle: '通知、实时活动、后台 App 刷新和本地网络',
@@ -362,6 +397,38 @@ class _SettingsPageState extends State<SettingsPage> {
           _SettingsGroup(
             title: '关于与更新',
             children: [
+              _SettingsRow(
+                leading: const _RowIcon(Icons.campaign_outlined),
+                title: '公告中心',
+                subtitle: announcements.unreadCount > 0
+                    ? '${announcements.unreadCount} 条未读公告'
+                    : announcements.announcements.isEmpty
+                    ? '新版本、新项目与活动通知'
+                    : '查看全部公告与历史记录',
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (announcements.unreadCount > 0) ...[
+                      Container(
+                        width: 7,
+                        height: 7,
+                        decoration: const BoxDecoration(
+                          color: HgColors.orange,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 7),
+                    ],
+                    const Icon(Icons.chevron_right_rounded),
+                  ],
+                ),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const AnnouncementsPage(),
+                  ),
+                ),
+              ),
+              const _SettingsDivider(),
               _SettingsRow(
                 leading: const _RowIcon(Icons.sync_rounded),
                 title: _checkingUpdate ? '正在检查更新…' : '检查更新',

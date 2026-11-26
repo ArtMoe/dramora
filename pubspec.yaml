@@ -1,7 +1,7 @@
 name: guomu
-description: 果幕 - 黄果短剧第三方 Flutter 客户端。
+description: 果幕（Dramora） - 黄果短剧第三方 Flutter 客户端。
 publish_to: 'none'
-version: 1.4.37+43
+version: 1.4.38+44
 
 environment:
   sdk: ^3.9.0
@@ -37,6 +37,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/brand/
+    - assets/data/announcements.json
     - assets/data/source_manifest.json
   fonts:
     - family: GuomuLatin

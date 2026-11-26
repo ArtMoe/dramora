@@ -515,7 +515,7 @@ void main() {
     final release = HgReleaseUpdate.fromJson({
       'tag_name': 'v1.5.0',
       'name': '果幕 v1.5.0',
-      'html_url': 'https://github.com/DearLicy/guomu/releases/tag/v1.5.0',
+      'html_url': 'https://github.com/DearLicy/dramora/releases/tag/v1.5.0',
       'body': '# 更新\n\n- 新增功能\n- 修复问题',
       'assets': [
         {

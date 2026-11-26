@@ -1,0 +1,108 @@
+name: Publish announcement
+
+on:
+  workflow_dispatch:
+    inputs:
+      id:
+        description: 固定公告 ID；留空自动生成。重复 ID 会更新已有公告
+        required: false
+        type: string
+      type:
+        description: 公告类型
+        required: true
+        default: notice
+        type: choice
+        options:
+          - notice
+          - activity
+          - project
+          - maintenance
+      priority:
+        description: 公告优先级
+        required: true
+        default: normal
+        type: choice
+        options:
+          - normal
+          - important
+      title:
+        description: 公告标题
+        required: true
+        type: string
+      body:
+        description: 公告正文，支持换行，不支持 HTML
+        required: true
+        type: string
+      published_at:
+        description: 发布时间 ISO 8601；留空立即发布
+        required: false
+        type: string
+      expires_at:
+        description: 过期时间 ISO 8601；留空表示长期有效
+        required: false
+        type: string
+      action_label:
+        description: 可选按钮文字；填写时必须同时填写链接
+        required: false
+        type: string
+      action_url:
+        description: 可选 HTTPS 按钮链接
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: guomu-announcement-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate announcement tooling
+        run: python -m unittest discover -s tool/tests -p 'test_publish_announcement.py'
+      - name: Update main branch
+        run: git pull --rebase origin main
+      - name: Publish announcement
+        env:
+          ANNOUNCEMENT_ID: ${{ inputs.id }}
+          ANNOUNCEMENT_TYPE: ${{ inputs.type }}
+          ANNOUNCEMENT_PRIORITY: ${{ inputs.priority }}
+          ANNOUNCEMENT_TITLE: ${{ inputs.title }}
+          ANNOUNCEMENT_BODY: ${{ inputs.body }}
+          ANNOUNCEMENT_PUBLISHED_AT: ${{ inputs.published_at }}
+          ANNOUNCEMENT_EXPIRES_AT: ${{ inputs.expires_at }}
+          ANNOUNCEMENT_ACTION_LABEL: ${{ inputs.action_label }}
+          ANNOUNCEMENT_ACTION_URL: ${{ inputs.action_url }}
+        run: |
+          python tool/publish_announcement.py publish \
+            --path assets/data/announcements.json \
+            --id "$ANNOUNCEMENT_ID" \
+            --type "$ANNOUNCEMENT_TYPE" \
+            --priority "$ANNOUNCEMENT_PRIORITY" \
+            --title "$ANNOUNCEMENT_TITLE" \
+            --body "$ANNOUNCEMENT_BODY" \
+            --published-at "$ANNOUNCEMENT_PUBLISHED_AT" \
+            --expires-at "$ANNOUNCEMENT_EXPIRES_AT" \
+            --action-label "$ANNOUNCEMENT_ACTION_LABEL" \
+            --action-url "$ANNOUNCEMENT_ACTION_URL"
+      - name: Commit announcement feed
+        run: |
+          if git diff --quiet -- assets/data/announcements.json; then
+            echo 'The announcement feed has not changed.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add assets/data/announcements.json
+          git commit -m 'chore: publish remote announcement [skip ci]'
+          git push origin HEAD:main

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -5,11 +7,15 @@ import 'package:permission_handler/permission_handler.dart';
 import '../models/hg_download_models.dart';
 import 'hg_live_activity_service.dart';
 
+typedef HgNotificationTapHandler = Future<void> Function(String payload);
+
 /// 本机通知只在用户设备上产生，不依赖果幕服务端。
 abstract final class HgNotificationService {
   static final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
+  static final List<String> _pendingPayloads = <String>[];
   static bool _initialized = false;
+  static HgNotificationTapHandler? _tapHandler;
 
   static Future<void> initialize() async {
     if (kIsWeb || _initialized) return;
@@ -24,8 +30,48 @@ abstract final class HgNotificationService {
       iOS: darwin,
       macOS: darwin,
     );
-    await _plugin.initialize(settings);
+    await _plugin.initialize(
+      settings,
+      onDidReceiveNotificationResponse: (response) {
+        final payload = response.payload?.trim() ?? '';
+        if (payload.isNotEmpty) unawaited(_dispatchPayload(payload));
+      },
+    );
+    try {
+      final launchDetails = await _plugin.getNotificationAppLaunchDetails();
+      final payload =
+          launchDetails?.notificationResponse?.payload?.trim() ?? '';
+      if (launchDetails?.didNotificationLaunchApp == true &&
+          payload.isNotEmpty) {
+        await _dispatchPayload(payload);
+      }
+    } catch (error) {
+      debugPrint('Guomu notification launch payload skipped: $error');
+    }
     _initialized = true;
+  }
+
+  static void setTapHandler(HgNotificationTapHandler? handler) {
+    _tapHandler = handler;
+    if (handler == null || _pendingPayloads.isEmpty) return;
+    final pending = List<String>.from(_pendingPayloads);
+    _pendingPayloads.clear();
+    for (final payload in pending) {
+      unawaited(_dispatchPayload(payload));
+    }
+  }
+
+  static Future<void> _dispatchPayload(String payload) async {
+    final handler = _tapHandler;
+    if (handler == null) {
+      if (!_pendingPayloads.contains(payload)) _pendingPayloads.add(payload);
+      return;
+    }
+    try {
+      await handler(payload);
+    } catch (error) {
+      debugPrint('Guomu notification payload handling skipped: $error');
+    }
   }
 
   static Future<bool> requestPermissions() async {
@@ -95,6 +141,45 @@ abstract final class HgNotificationService {
     );
   }
 
+  static Future<void> showAnnouncement({
+    required String id,
+    required String title,
+    required String body,
+    required bool important,
+  }) async {
+    if (kIsWeb) return;
+    await initialize();
+    final preview = body.replaceAll(RegExp(r'\s+'), ' ').trim();
+    await _plugin.show(
+      _announcementNotificationId(id),
+      title,
+      preview.length > 140 ? '${preview.substring(0, 140)}…' : preview,
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          'guomu_announcements',
+          '公告与活动',
+          channelDescription: '新版本、新项目、活动与维护公告',
+          importance: important
+              ? Importance.high
+              : Importance.defaultImportance,
+          priority: important ? Priority.high : Priority.defaultPriority,
+          onlyAlertOnce: true,
+        ),
+        iOS: DarwinNotificationDetails(
+          presentAlert: true,
+          presentList: true,
+          presentBanner: true,
+          presentSound: important,
+          threadIdentifier: 'guomu_announcements',
+          interruptionLevel: important
+              ? InterruptionLevel.timeSensitive
+              : InterruptionLevel.active,
+        ),
+      ),
+      payload: 'announcement:$id',
+    );
+  }
+
   static Future<void> showDownloadProgress(
     HgDownloadTask task, {
     required int episode,
@@ -151,5 +236,14 @@ abstract final class HgNotificationService {
     if (kIsWeb) return;
     await initialize();
     await _plugin.cancel(videoId + 200000);
+  }
+
+  static int _announcementNotificationId(String id) {
+    var hash = 0x811C9DC5;
+    for (final unit in id.codeUnits) {
+      hash ^= unit;
+      hash = (hash * 0x01000193) & 0xFFFFFFFF;
+    }
+    return 300000000 + (hash % 800000000);
   }
 }

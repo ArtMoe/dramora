@@ -73,10 +73,10 @@ class AboutGuomuPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 15),
                   const Text(
-                    '果幕',
+                    '果幕 · Dramora',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 27,
+                      fontSize: 25,
                       fontWeight: FontWeight.w900,
                       letterSpacing: -0.8,
                     ),
@@ -155,8 +155,8 @@ class AboutGuomuPage extends StatelessWidget {
                   icon: Icons.code_rounded,
                   title: '开源项目',
                   children: [
-                    '项目地址：github.com/DearLicy/guomu',
-                    '在线预览：dearlicy.github.io/guomu',
+                    '项目地址：github.com/DearLicy/dramora',
+                    '在线预览：dearlicy.github.io/dramora',
                     '本项目基于 GNU General Public License v3.0 开源。',
                   ],
                   theme: theme,

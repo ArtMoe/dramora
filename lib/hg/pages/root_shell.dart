@@ -9,13 +9,17 @@ import 'package:url_launcher/url_launcher.dart';
 import '../app_flags.dart';
 import '../app_metadata.dart';
 import '../auth/app_controllers.dart';
+import '../navigation/hg_route_observer.dart';
 import '../theme/hg_theme.dart';
 import '../utils/hg_download_manager.dart';
+import '../services/hg_announcement_service.dart';
 import '../services/hg_deep_link_service.dart';
 import '../services/hg_notification_service.dart';
 import '../services/hg_settings.dart';
 import '../utils/hg_update_service.dart';
 import 'category_page.dart';
+import 'announcements_page.dart';
+import 'announcement_sheet.dart';
 import 'home_page.dart';
 import 'posts_page.dart';
 import 'profile_page.dart';
@@ -35,7 +39,8 @@ class RootShell extends StatefulWidget {
   State<RootShell> createState() => _RootShellState();
 }
 
-class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
+class _RootShellState extends State<RootShell>
+    with WidgetsBindingObserver, RouteAware {
   static const _releaseSeenKey = 'guomu.release.seen';
   static const _updateCheckedKey = 'guomu.update.last_checked.v1';
 
@@ -59,7 +64,11 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
   final Set<int> _visited = {0};
   bool _sourceSheetShown = false;
   AuthController? _auth;
+  ModalRoute<dynamic>? _route;
   bool _sessionExpiredSheetScheduled = false;
+  bool _announcementSheetOpen = false;
+  bool _startupChecksRunning = false;
+  String? _pendingAnnouncementId;
 
   @override
   void initState() {
@@ -84,6 +93,8 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
           },
         ),
       );
+      _startupChecksRunning = true;
+      HgNotificationService.setTapHandler(_handleNotificationPayload);
       final downloads = context.read<HgDownloadManager>();
       downloads.onUpdateFound = (task, count) async {
         if (prefs.getBool(HgSettingsKeys.notificationsEnabled) ?? true) {
@@ -95,13 +106,15 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
           await HgNotificationService.showOfflineReady(task);
         }
       };
-      _runStartupChecks();
+      unawaited(_runStartupChecks());
     });
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    if (_route != null) hgRouteObserver.unsubscribe(this);
+    HgNotificationService.setTapHandler(null);
     _auth?.removeListener(_handleAuthChanged);
     super.dispose();
   }
@@ -109,11 +122,29 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route != null && !identical(route, _route)) {
+      if (_route != null) hgRouteObserver.unsubscribe(this);
+      _route = route;
+      hgRouteObserver.subscribe(this, route);
+    }
     final auth = context.read<AuthController>();
     if (identical(_auth, auth)) return;
     _auth?.removeListener(_handleAuthChanged);
     _auth = auth..addListener(_handleAuthChanged);
     _handleAuthChanged();
+  }
+
+  @override
+  void didPopNext() {
+    if (!mounted || _startupChecksRunning) return;
+    final pending = _pendingAnnouncementId;
+    if (pending != null) {
+      _pendingAnnouncementId = null;
+      unawaited(_maybeShowAnnouncement(requestedId: pending));
+    } else {
+      unawaited(_maybeShowAnnouncement());
+    }
   }
 
   void _handleAuthChanged() {
@@ -131,24 +162,113 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && mounted) {
       unawaited(context.read<HgDownloadManager>().checkForUpdates());
+      unawaited(_refreshAnnouncementsOnResume());
     }
   }
 
   Future<void> _runStartupChecks() async {
-    if (kIsWeb && kHgWebPreviewOnly) {
-      await Future<void>.delayed(const Duration(milliseconds: 420));
-      if (!mounted) return;
-      await showHgAdaptiveSheet<void>(
-        context,
-        child: const _WebPreviewNotice(),
+    _startupChecksRunning = true;
+    try {
+      if (kIsWeb && kHgWebPreviewOnly) {
+        await Future<void>.delayed(const Duration(milliseconds: 420));
+        if (!mounted) return;
+        await showHgAdaptiveSheet<void>(
+          context,
+          child: const _WebPreviewNotice(),
+        );
+      }
+      await _maybeShowReleaseNotes();
+      if (mounted) await _maybeCheckUpdate();
+      if (mounted) unawaited(_refreshAnnouncements(force: true));
+      if (mounted) {
+        await Future<void>.delayed(const Duration(seconds: 2));
+        if (mounted) await context.read<HgDownloadManager>().checkForUpdates();
+      }
+    } finally {
+      _startupChecksRunning = false;
+      if (mounted) {
+        final pending = _pendingAnnouncementId;
+        if (pending != null) {
+          _pendingAnnouncementId = null;
+          unawaited(_maybeShowAnnouncement(requestedId: pending));
+        } else {
+          unawaited(_maybeShowAnnouncement());
+        }
+      }
+    }
+  }
+
+  Future<void> _refreshAnnouncementsOnResume() async {
+    if (!mounted) return;
+    await context.read<HgAnnouncementController>().refreshIfStale();
+    if (mounted) await _maybeShowAnnouncement();
+  }
+
+  Future<void> _refreshAnnouncements({required bool force}) async {
+    if (!mounted) return;
+    final controller = context.read<HgAnnouncementController>();
+    await controller.refresh(force: force);
+    if (mounted) await _maybeShowAnnouncement();
+  }
+
+  Future<void> _maybeShowAnnouncement({String? requestedId}) async {
+    if (!mounted || _announcementSheetOpen) {
+      if (requestedId != null) _pendingAnnouncementId = requestedId;
+      return;
+    }
+    if (_startupChecksRunning) {
+      if (requestedId != null) _pendingAnnouncementId = requestedId;
+      return;
+    }
+    final controller = context.read<HgAnnouncementController>();
+    await controller.bootstrap();
+    final announcement = requestedId == null
+        ? controller.nextEligible
+        : controller.announcementById(requestedId);
+    if (announcement == null || !mounted) return;
+    if (ModalRoute.of(context)?.isCurrent != true) {
+      _pendingAnnouncementId = announcement.id;
+      return;
+    }
+
+    _announcementSheetOpen = true;
+    final handled =
+        controller.isAcknowledged(announcement.id) ||
+        controller.isSnoozed(announcement.id);
+    final decision = await showHgAnnouncementSheet(
+      context,
+      announcement,
+      handled: handled,
+    );
+    if (decision == HgAnnouncementDecision.today) {
+      await controller.snoozeToday(announcement.id);
+    } else if (decision == HgAnnouncementDecision.acknowledge ||
+        (decision == null && !handled)) {
+      await controller.acknowledge(announcement.id);
+    }
+    _announcementSheetOpen = false;
+  }
+
+  Future<void> _handleNotificationPayload(String payload) async {
+    if (!payload.startsWith('announcement:') || !mounted) return;
+    final id = payload.substring('announcement:'.length).trim();
+    if (id.isEmpty) return;
+    final controller = context.read<HgAnnouncementController>();
+    await controller.bootstrap();
+    var announcement = controller.announcementById(id);
+    if (announcement == null) {
+      await controller.refresh(force: true);
+      announcement = controller.announcementById(id);
+    }
+    if (!mounted) return;
+    if (announcement == null) {
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const AnnouncementsPage()),
       );
+      return;
     }
-    await _maybeShowReleaseNotes();
-    if (mounted) await _maybeCheckUpdate();
-    if (mounted) {
-      await Future<void>.delayed(const Duration(seconds: 2));
-      if (mounted) await context.read<HgDownloadManager>().checkForUpdates();
-    }
+    _pendingAnnouncementId = id;
+    await _maybeShowAnnouncement(requestedId: id);
   }
 
   Future<void> _maybeShowReleaseNotes() async {
