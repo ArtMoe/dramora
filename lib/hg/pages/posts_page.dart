@@ -14,9 +14,11 @@ import '../theme/hg_theme.dart';
 import '../utils/hg_format.dart';
 import '../widgets/hg_adaptive_sheet.dart';
 import '../widgets/hg_components.dart';
+import '../widgets/hg_player_seek_bar.dart';
 import '../widgets/hg_refresh_indicator.dart';
 import '../widgets/hg_share_sheet.dart';
 import '../widgets/hg_video_controller.dart';
+import '../utils/hg_player_display.dart';
 import '../widgets/secure_cover.dart';
 import 'login_sheet.dart';
 import '../widgets/hg_pressable.dart';
@@ -1098,6 +1100,14 @@ class _ArticleVideoState extends State<_ArticleVideo> {
   HgVideoController? _controller;
   bool _loading = true;
   bool _failed = false;
+  bool _controlsVisible = true;
+  bool _scrubbing = false;
+  bool _seeking = false;
+  Duration _scrubPosition = Duration.zero;
+  double _speed = 1;
+
+  bool get _landscape =>
+      MediaQuery.maybeOrientationOf(context) == Orientation.landscape;
 
   @override
   void initState() {
@@ -1120,6 +1130,7 @@ class _ArticleVideoState extends State<_ArticleVideo> {
         _controller = controller;
         _loading = false;
       });
+      unawaited(_applyOrientation());
     } catch (_) {
       if (mounted) {
         setState(() {
@@ -1132,78 +1143,215 @@ class _ArticleVideoState extends State<_ArticleVideo> {
 
   @override
   void dispose() {
+    if (_landscape) unawaited(HgPlayerDisplay.reset());
     _controller?.dispose();
     super.dispose();
   }
 
+  Future<void> _applyOrientation() async {
+    if (_landscape) {
+      await HgPlayerDisplay.enterLandscape();
+    } else {
+      await HgPlayerDisplay.reset();
+    }
+  }
+
+  Future<void> _toggleFullscreen() async {
+    if (_landscape) {
+      await HgPlayerDisplay.reset();
+    } else {
+      await HgPlayerDisplay.enterLandscape();
+    }
+    if (mounted) setState(() => _controlsVisible = true);
+  }
+
+  void _showControls() {
+    if (!mounted || _controlsVisible) return;
+    setState(() => _controlsVisible = true);
+  }
+
+  void _startScrubbing(double value) {
+    final controller = _controller;
+    if (controller == null) return;
+    setState(() {
+      _scrubbing = true;
+      _scrubPosition = controller.duration * value.clamp(0.0, 1.0);
+    });
+  }
+
+  void _updateScrubbing(double value) {
+    final controller = _controller;
+    if (controller == null) return;
+    setState(
+      () => _scrubPosition = controller.duration * value.clamp(0.0, 1.0),
+    );
+  }
+
+  Future<void> _finishScrubbing(double value) async {
+    final controller = _controller;
+    if (controller == null) return;
+    final target = controller.duration * value.clamp(0.0, 1.0);
+    setState(() {
+      _scrubbing = false;
+      _scrubPosition = target;
+      _seeking = true;
+    });
+    try {
+      await controller.seekTo(target);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _seeking = false;
+          _controlsVisible = true;
+        });
+      }
+    }
+  }
+
+  Future<void> _cycleSpeed() async {
+    final controller = _controller;
+    if (controller == null) return;
+    const speeds = [1.0, 1.25, 1.5, 2.0];
+    final index = speeds.indexOf(_speed);
+    _speed = speeds[(index + 1) % speeds.length];
+    await controller.setPlaybackSpeed(_speed);
+    if (mounted) setState(() => _controlsVisible = true);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final controller = _controller;
+    final player = switch (_loading) {
+      true => const Center(
+        child: SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+        ),
+      ),
+      false when _failed || controller == null => const Center(
+        child: Text(
+          '视频加载失败',
+          style: TextStyle(color: Colors.white70, fontSize: 12),
+        ),
+      ),
+      false when widget.url.isEmpty => const Center(
+        child: Text(
+          '视频暂不可用',
+          style: TextStyle(color: Colors.white70, fontSize: 12),
+        ),
+      ),
+      false => _buildPlayer(controller!),
+    };
+    final child = ColoredBox(color: Colors.black, child: player);
+    if (_landscape) {
+      return SizedBox.expand(child: child);
+    }
     return ClipRRect(
       borderRadius: BorderRadius.circular(10),
-      child: AspectRatio(
-        aspectRatio: 16 / 9,
-        child: ColoredBox(
-          color: Colors.black,
-          child: widget.url.isEmpty
-              ? const Center(
-                  child: Text(
-                    '视频暂不可用',
-                    style: TextStyle(color: Colors.white70, fontSize: 12),
-                  ),
-                )
-              : _failed
-              ? const Center(
-                  child: Text(
-                    '视频加载失败',
-                    style: TextStyle(color: Colors.white70, fontSize: 12),
-                  ),
-                )
-              : _loading || _controller == null
-              ? const Center(
-                  child: SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  ),
-                )
-              : GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => unawaited(_controller!.toggle()),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      _controller!.buildView(),
-                      AnimatedBuilder(
-                        animation: _controller!,
-                        builder: (context, _) {
-                          if (_controller!.isPlaying) {
-                            return const SizedBox.shrink();
-                          }
-                          return const Center(
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: Colors.black45,
-                                shape: BoxShape.circle,
-                              ),
-                              child: Padding(
-                                padding: EdgeInsets.all(9),
-                                child: Icon(
-                                  Icons.play_arrow_rounded,
-                                  color: Colors.white,
-                                  size: 31,
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
+      child: AspectRatio(aspectRatio: 16 / 9, child: child),
+    );
+  }
+
+  Widget _buildPlayer(HgVideoController controller) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: _showControls,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: () => unawaited(controller.toggle()),
+              child: controller.buildView(),
+            ),
+          ),
+          if (!controller.isPlaying && !_controlsVisible)
+            Center(
+              child: DecoratedBox(
+                decoration: const BoxDecoration(
+                  color: Colors.black45,
+                  shape: BoxShape.circle,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(9),
+                  child: Icon(
+                    Icons.play_arrow_rounded,
+                    color: Colors.white,
+                    size: 31,
                   ),
                 ),
-        ),
+              ),
+            ),
+          if (_controlsVisible)
+            Positioned(
+              left: 12,
+              right: 12,
+              bottom: 8,
+              child: AnimatedBuilder(
+                animation: controller,
+                builder: (context, _) => Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        GestureDetector(
+                          onTap: () => unawaited(controller.toggle()),
+                          child: Icon(
+                            controller.isPlaying
+                                ? Icons.pause_rounded
+                                : Icons.play_arrow_rounded,
+                            color: Colors.white,
+                            size: _landscape ? 30 : 24,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: HgPlayerSeekBar(
+                            position: (_scrubbing || _seeking)
+                                ? _scrubPosition
+                                : controller.position,
+                            duration: controller.duration,
+                            scrubbing: _scrubbing,
+                            seeking: _seeking,
+                            buffered: controller.bufferedPosition,
+                            showTimeLabels: _landscape,
+                            onScrubStart: _startScrubbing,
+                            onScrubUpdate: _updateScrubbing,
+                            onScrubEnd: _finishScrubbing,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () => unawaited(_cycleSpeed()),
+                          child: Text(
+                            '${_speed}x',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        GestureDetector(
+                          onTap: () => unawaited(_toggleFullscreen()),
+                          child: Icon(
+                            _landscape
+                                ? Icons.fullscreen_exit_rounded
+                                : Icons.fullscreen_rounded,
+                            color: Colors.white,
+                            size: _landscape ? 27 : 22,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
