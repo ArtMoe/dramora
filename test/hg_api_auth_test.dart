@@ -124,6 +124,66 @@ void main() {
   });
 
   test(
+    'authenticated requests stay on the source that issued the token',
+    () async {
+      final primary = _AuthServer(
+        await HttpServer.bind(InternetAddress.loopbackIPv4, 0),
+        (source, path, call) {
+          if (path == '/api/account/loginByPassword') {
+            return (
+              statusCode: 200,
+              body: {
+                'status': 1,
+                'data': {
+                  'token': 'issued-by-a',
+                  'user': {
+                    'id': 338861,
+                    'username': 'DearLicy',
+                    'nickname': 'DearLicy',
+                  },
+                },
+              },
+            );
+          }
+          if (path.startsWith('/api/users/me/collects')) {
+            return (
+              statusCode: 200,
+              body: {
+                'status': 1,
+                'data': {
+                  'items': <Map<String, dynamic>>[],
+                  'pagination': {'page': 1, 'pages': 0, 'total': 0},
+                },
+              },
+            );
+          }
+          if (path == '/api/account/me') {
+            return (statusCode: 200, body: _me());
+          }
+          return (statusCode: 404, body: {'status': 0});
+        },
+      );
+      final backup = _AuthServer(
+        await HttpServer.bind(InternetAddress.loopbackIPv4, 0),
+        (source, path, call) => (statusCode: 401, body: _unauthorized()),
+      );
+      addTearDown(primary.close);
+      addTearDown(backup.close);
+      final api = HgApi(
+        dio: Dio(),
+        sourceRouter: _TestRouter([primary.origin, backup.origin]),
+      );
+
+      final session = await api.login('DearLicy', 'password');
+      api.token = session.token;
+      final collects = await api.myCollects();
+
+      expect(collects.items, isEmpty);
+      expect(api.baseUrl, primary.origin);
+    },
+  );
+
+  test(
     'one rejecting source plus one valid source preserves the session',
     () async {
       late _AuthServer endpoint;

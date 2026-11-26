@@ -30,6 +30,7 @@ class _RecoveryApi extends HgApi {
   _RecoveryApi() : super(baseUrl: 'https://example.test');
 
   HgUser _user = _staleUser;
+  int meCalls = 0;
 
   @override
   Future<({String token, HgUser user})> login(
@@ -41,7 +42,10 @@ class _RecoveryApi extends HgApi {
   }
 
   @override
-  Future<HgUser> me() async => _user;
+  Future<HgUser> me() async {
+    meCalls++;
+    return _user;
+  }
 
   @override
   Future<void> logout() async {}
@@ -99,6 +103,23 @@ void main() {
     expect(auth.user, isNull);
     expect(prefs.getString('guomu.hg.token'), isNull);
     expect(prefs.getString('guomu.hg.user'), isNull);
+  });
+
+  test('a recent login is kept without an immediate session refresh', () async {
+    SharedPreferences.setMockInitialValues({
+      'guomu.hg.token': 'fresh-token',
+      'guomu.hg.user': jsonEncode(_staleUser.toJson()),
+      'guomu.hg.session.checked_at': DateTime.now().millisecondsSinceEpoch,
+    });
+    final prefs = await SharedPreferences.getInstance();
+    final api = _RecoveryApi();
+    final auth = AuthController(api, prefs);
+    addTearDown(auth.dispose);
+
+    await auth.restore();
+
+    expect(auth.isLoggedIn, isTrue);
+    expect(api.meCalls, 0);
   });
 
   testWidgets('an expired follow re-prompts login and retries once', (

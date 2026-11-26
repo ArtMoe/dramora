@@ -1,16 +1,37 @@
 abstract final class HgAppMetadata {
-  static const String version = '1.4.34';
-  static const String buildNumber = '40';
-  static const String versionLabel = 'v1.4.34 (40)';
-  static const String releaseTitle = 'Web 直连与安卓升级兼容版';
+  static const String version = '1.4.35';
+  static const String buildNumber = '41';
+  static const String versionLabel = 'v1.4.35 (41)';
+  static const String releaseTitle = 'iOS 登录与后台媒体体验版';
   static const List<String> releaseNotes = [
-    'Web 预览改为直接访问站点公开接口，移除已失效的 trycloudflare 临时中转，页面请求不再全部 503。',
-    'Android 更新遇到旧版签名不兼容时给出一次性迁移说明，并提供系统卸载入口；从当前版本起后续更新可正常覆盖。',
-    '保持原生端真实接口直连，数据源同步与线路探测继续使用 /api/home。',
-    '修复 Web 预览版本仍依赖旧 CORS 隧道的问题。',
+    '登录 token 固定优先使用签发线路，并延后启动时重复校验，修复 iOS 登录后立即掉线。',
+    'iOS 通知栏“正在播放”现在同步标题、集数、实时进度、倍速和短剧封面。',
+    '灵动岛与锁屏实时活动改用原生 ActivityKit 数据传输，短剧封面不再依赖 App Group 文件。',
+    'iOS 缓存新增后台保活、通知附件封面、下载进度与灵动岛缓存进度；被系统强制结束后会在下次启动恢复。',
   ];
 
   static const List<HgReleaseRecord> releaseHistory = [
+    HgReleaseRecord(
+      version: 'v1.4.35',
+      buildNumber: '41',
+      date: '2026-11-26',
+      title: 'iOS 登录与后台媒体体验版',
+      features: [
+        'iOS 通知栏播放控件显示短剧封面、实时播放进度与倍速。',
+        '灵动岛和锁屏实时活动直接携带短剧封面，播放与缓存状态都可查看。',
+        'iOS 缓存支持后台持续执行、通知进度和封面缩略图。',
+      ],
+      improvements: [
+        '登录请求固定在签发 token 的数据源，最近验证过的会话不会在启动或返回前台时立即重复失效。',
+        '移除对 App Group 文件传输的依赖，降低 iOS 第三方签名环境下实时活动封面丢失的概率。',
+        '缓存完成后结束进度通知，并保留可离线观看的完成提醒。',
+      ],
+      fixes: [
+        '修复 iOS 登录后立刻退出登录的问题。',
+        '修复 iOS 通知栏播放器没有封面和实时进度的问题。',
+        '修复灵动岛不显示短剧封面、缓存进度不可见的问题。',
+      ],
+    ),
     HgReleaseRecord(
       version: 'v1.4.34',
       buildNumber: '40',

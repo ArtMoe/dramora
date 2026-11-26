@@ -3,6 +3,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../models/hg_download_models.dart';
+import 'hg_live_activity_service.dart';
 
 /// 本机通知只在用户设备上产生，不依赖果幕服务端。
 abstract final class HgNotificationService {
@@ -45,7 +46,7 @@ abstract final class HgNotificationService {
       task.videoId,
       '${task.title} 更新了',
       '已更新 $countText${task.autoUpdate ? '，正在自动缓存新剧集' : '，打开果幕即可继续观看'}',
-      const NotificationDetails(
+      NotificationDetails(
         android: AndroidNotificationDetails(
           'guomu_updates',
           '追更提醒',
@@ -67,11 +68,15 @@ abstract final class HgNotificationService {
   static Future<void> showOfflineReady(HgDownloadTask task) async {
     if (kIsWeb) return;
     await initialize();
+    final artworkPath = await HgLiveActivityService.prepareArtworkPath(
+      videoId: task.videoId,
+      cover: task.cover,
+    );
     await _plugin.show(
       task.videoId + 100000,
       '${task.title} 已缓存',
       '已完成 ${task.episodes.length} 集，断网也能继续观看',
-      const NotificationDetails(
+      NotificationDetails(
         android: AndroidNotificationDetails(
           'guomu_downloads',
           '离线缓存',
@@ -79,9 +84,72 @@ abstract final class HgNotificationService {
           importance: Importance.defaultImportance,
           priority: Priority.defaultPriority,
         ),
-        iOS: DarwinNotificationDetails(threadIdentifier: 'guomu_downloads'),
+        iOS: DarwinNotificationDetails(
+          threadIdentifier: 'guomu_downloads',
+          attachments: artworkPath.isEmpty
+              ? null
+              : [DarwinNotificationAttachment(artworkPath)],
+        ),
       ),
       payload: 'download:${task.videoId}',
     );
+  }
+
+  static Future<void> showDownloadProgress(
+    HgDownloadTask task, {
+    required int episode,
+    required int totalEpisodes,
+    required double progress,
+    required String state,
+    required String speed,
+    bool alert = false,
+  }) async {
+    if (kIsWeb) return;
+    await initialize();
+    final artworkPath = await HgLiveActivityService.prepareArtworkPath(
+      videoId: task.videoId,
+      cover: task.cover,
+    );
+    final percentage = (progress.clamp(0.0, 1.0) * 100).round();
+    await _plugin.show(
+      task.videoId + 200000,
+      '${task.title} · 正在缓存',
+      totalEpisodes > 0
+          ? '第 $episode/$totalEpisodes 集 · $percentage% · $speed'
+          : '$percentage% · $speed',
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          'guomu_downloads_progress',
+          '离线缓存进度',
+          channelDescription: '显示短剧缓存进度、集数与实时网速',
+          importance: alert ? Importance.low : Importance.min,
+          priority: Priority.low,
+          onlyAlertOnce: true,
+          ongoing: true,
+          autoCancel: false,
+          showProgress: true,
+          maxProgress: 100,
+          progress: percentage,
+        ),
+        iOS: DarwinNotificationDetails(
+          presentAlert: alert,
+          presentList: true,
+          presentBanner: alert,
+          presentSound: alert,
+          threadIdentifier: 'guomu_downloads_progress',
+          subtitle: state,
+          attachments: artworkPath.isEmpty
+              ? null
+              : [DarwinNotificationAttachment(artworkPath)],
+        ),
+      ),
+      payload: 'download:${task.videoId}',
+    );
+  }
+
+  static Future<void> clearDownloadProgress(int videoId) async {
+    if (kIsWeb) return;
+    await initialize();
+    await _plugin.cancel(videoId + 200000);
   }
 }

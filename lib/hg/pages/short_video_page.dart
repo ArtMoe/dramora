@@ -1059,6 +1059,7 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
           title: widget.detail.title,
           subtitle: '第 ${widget.episode.number} 集 · 果幕',
           cover: widget.detail.cover,
+          videoId: widget.detail.id,
           position: controller.position,
           duration: duration,
           isPlaying: controller.isPlaying,

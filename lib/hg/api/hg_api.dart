@@ -221,10 +221,25 @@ class HgApi {
   void Function()? onAuthenticationExpired;
   Future<bool>? _sessionVerification;
   String? _lastVerifiedAuthenticatedSource;
+  String? _lastSuccessfulSource;
   final Map<String, _CacheEntry<Map<String, dynamic>>> _rawCache = {};
   final Map<String, Future<Map<String, dynamic>>> _rawRefreshing = {};
 
   String get baseUrl => _sourceRouter?.baseUrl ?? _fallbackBaseUrl;
+
+  String? get authenticatedSource => _lastVerifiedAuthenticatedSource;
+
+  void bindAuthenticatedSource(String? source) {
+    if (source == null || source.trim().isEmpty) {
+      _lastVerifiedAuthenticatedSource = null;
+      return;
+    }
+    try {
+      _lastVerifiedAuthenticatedSource = normalizeHgBaseUrl(source);
+    } on FormatException {
+      _lastVerifiedAuthenticatedSource = null;
+    }
+  }
 
   void setSourceRouter(HgSourceRouter sourceRouter) {
     _sourceRouter = sourceRouter;
@@ -417,7 +432,7 @@ class HgApi {
       ),
     );
     final session = _sessionFromData(data);
-    _lastVerifiedAuthenticatedSource = baseUrl;
+    _lastVerifiedAuthenticatedSource = _lastSuccessfulSource ?? baseUrl;
     return session;
   }
 
@@ -436,7 +451,7 @@ class HgApi {
       await _request('POST', '/api/account/registerByPassword', body: body),
     );
     final session = _sessionFromData(data);
-    _lastVerifiedAuthenticatedSource = baseUrl;
+    _lastVerifiedAuthenticatedSource = _lastSuccessfulSource ?? baseUrl;
     return session;
   }
 
@@ -1345,10 +1360,20 @@ class HgApi {
       'content_type': body == null ? '' : 'application/json',
     };
     final isReadOnly = method.toUpperCase() == 'GET';
-    final sources = (_sourceRouter?.rankedSources ?? [baseUrl])
+    final authenticated =
+        token != null && token!.isNotEmpty && !_isAccountEntryPath(path);
+    final ranked = (_sourceRouter?.rankedSources ?? [baseUrl])
         .where((source) => source.isNotEmpty)
-        .take(isReadOnly ? 4 : 1)
-        .toList(growable: false);
+        .toList();
+    // The token is issued by the source that accepted the login. Keep that
+    // source first for authenticated calls so a healthy-but-different edge
+    // cannot invalidate a valid local session.
+    final preferred = authenticated ? _lastVerifiedAuthenticatedSource : null;
+    if (preferred != null) {
+      ranked.remove(preferred);
+      ranked.insert(0, preferred);
+    }
+    final sources = ranked.take(isReadOnly ? 4 : 1).toList(growable: false);
     Object? lastError;
 
     for (final source in sources) {
@@ -1364,7 +1389,8 @@ class HgApi {
           stopwatch.elapsed,
           promote: isReadOnly,
         );
-        if (token != null && token!.isNotEmpty && !_isAccountEntryPath(path)) {
+        _lastSuccessfulSource = source;
+        if (authenticated) {
           _lastVerifiedAuthenticatedSource = source;
         }
         if (_sourceRouter == null && source != _fallbackBaseUrl) {
@@ -1381,6 +1407,14 @@ class HgApi {
             tokenAtRequest.isEmpty ||
             _isAccountEntryPath(path)) {
           rethrow;
+        }
+        // A fallback edge can have a different session cookie/token state.
+        // Never clear a locally valid session because a secondary edge
+        // rejected the request while the issuing edge was unreachable.
+        if (authenticated &&
+            _lastVerifiedAuthenticatedSource != null &&
+            source != _lastVerifiedAuthenticatedSource) {
+          throw const HgLoginRequiredException('当前线路登录校验异常，请稍后重试', false);
         }
         final confirmed = await _confirmSessionInvalid(tokenAtRequest);
         if (confirmed) onAuthenticationExpired?.call();

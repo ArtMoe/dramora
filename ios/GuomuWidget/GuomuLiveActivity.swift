@@ -2,60 +2,78 @@ import ActivityKit
 import SwiftUI
 import WidgetKit
 
-struct LiveActivitiesAppAttributes: ActivityAttributes, Identifiable {
-    public typealias LiveDeliveryData = ContentState
-
-    public struct ContentState: Codable, Hashable {}
-
-    var id = UUID()
-}
-
-extension LiveActivitiesAppAttributes {
-    func prefixedKey(_ key: String) -> String {
-        "\(id)_\(key)"
+struct GuomuActivityAttributes: ActivityAttributes {
+    public struct ContentState: Codable, Hashable {
+        var kind: String
+        var title: String
+        var subtitle: String
+        var episode: Int
+        var totalEpisodes: Int
+        var episodeLabel: String
+        var detail: String
+        var progress: Double
+        var coverBase64: String
+        var deepLink: String
     }
-}
 
-private let sharedDefaults = UserDefaults(suiteName: "group.com.guomu.huangguo")!
+    var activityKey: String
+}
 
 private struct ActivityData {
-    let title: String
-    let genre: String
-    let episode: Int
-    let totalEpisodes: Int
-    let progress: Double
-    let coverPath: String
-    let deepLink: String
+    let state: GuomuActivityAttributes.ContentState
 
-    init(context: ActivityViewContext<LiveActivitiesAppAttributes>) {
-        title = sharedDefaults.string(forKey: context.attributes.prefixedKey("title")) ?? "果幕短剧"
-        genre = sharedDefaults.string(forKey: context.attributes.prefixedKey("genre")) ?? "黄果短剧"
-        episode = sharedDefaults.integer(forKey: context.attributes.prefixedKey("episode"))
-        totalEpisodes = sharedDefaults.integer(forKey: context.attributes.prefixedKey("totalEpisodes"))
-        progress = sharedDefaults.double(forKey: context.attributes.prefixedKey("progress"))
-        coverPath = sharedDefaults.string(forKey: context.attributes.prefixedKey("cover")) ?? ""
-        deepLink = sharedDefaults.string(forKey: context.attributes.prefixedKey("deepLink")) ?? "guomu://"
+    init(context: ActivityViewContext<GuomuActivityAttributes>) {
+        state = context.state
     }
 
-    var episodeText: String {
-        totalEpisodes > 0 ? "观看至 \(episode)/\(totalEpisodes) 集" : "观看至第 \(episode) 集"
+    var safeDeepLink: URL {
+        URL(string: state.deepLink) ?? URL(string: "guomu://")!
     }
+
+    var coverImage: UIImage? {
+        guard !state.coverBase64.isEmpty,
+              let data = Data(base64Encoded: state.coverBase64) else {
+            return nil
+        }
+        return UIImage(data: data)
+    }
+
+    var progress: Double {
+        state.progress.isFinite ? min(max(state.progress, 0), 1) : 0
+    }
+
+    var isDownload: Bool { state.kind == "download" }
+    var eyebrow: String { isDownload ? "果幕离线缓存" : "果幕短剧" }
+    var actionTitle: String { isDownload ? "查看缓存" : "继续播放" }
 }
 
 private struct CoverView: View {
-    let path: String
+    let image: UIImage?
+
     var body: some View {
         Group {
-            if let image = UIImage(contentsOfFile: path) {
-                Image(uiImage: image).resizable().scaledToFill()
+            if let image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
             } else {
                 ZStack {
-                    LinearGradient(colors: [.orange.opacity(0.8), .black], startPoint: .topLeading, endPoint: .bottomTrailing)
-                    Image(systemName: "play.fill").foregroundStyle(.white)
+                    LinearGradient(
+                        colors: [.orange.opacity(0.88), .black],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(.white)
                 }
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 11, style: .continuous)
+                .strokeBorder(.white.opacity(0.14), lineWidth: 0.5)
+        }
     }
 }
 
@@ -69,24 +87,33 @@ struct GuomuWidgetBundle: WidgetBundle {
 @available(iOSApplicationExtension 16.1, *)
 struct GuomuLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
-        ActivityConfiguration(for: LiveActivitiesAppAttributes.self) { context in
+        ActivityConfiguration(for: GuomuActivityAttributes.self) { context in
             let data = ActivityData(context: context)
             HStack(spacing: 12) {
-                CoverView(path: data.coverPath)
-                    .frame(width: 48, height: 64)
+                CoverView(image: data.coverImage)
+                    .frame(width: 50, height: 66)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("果幕短剧").font(.caption2).foregroundStyle(.orange)
-                    Text(data.title).font(.headline).lineLimit(2)
-                    Text("\(data.genre) · \(data.episodeText)")
+                    Text(data.eyebrow)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.orange)
+                    Text(data.state.title)
+                        .font(.headline)
+                        .lineLimit(2)
+                    Text("\(data.state.episodeLabel) · \(data.state.detail)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                    ProgressView(value: data.progress)
+                        .tint(.orange)
+                        .padding(.top, 2)
                 }
-                Spacer()
-                Link(destination: URL(string: data.deepLink)!) {
-                    Text("继续播放")
-                        .font(.caption).fontWeight(.bold)
+                Spacer(minLength: 0)
+                Link(destination: data.safeDeepLink) {
+                    Text(data.actionTitle)
+                        .font(.caption.weight(.bold))
                         .foregroundStyle(.black)
-                        .padding(.horizontal, 12).padding(.vertical, 8)
+                        .padding(.horizontal, 11)
+                        .padding(.vertical, 8)
                         .background(.orange, in: Capsule())
                 }
             }
@@ -97,21 +124,27 @@ struct GuomuLiveActivityWidget: Widget {
             let data = ActivityData(context: context)
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    CoverView(path: data.coverPath).frame(width: 46, height: 62)
+                    CoverView(image: data.coverImage)
+                        .frame(width: 46, height: 62)
                 }
                 DynamicIslandExpandedRegion(.center) {
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(data.title).font(.headline).lineLimit(2)
-                        Text("\(data.genre) · \(data.episodeText)")
-                            .font(.caption).foregroundStyle(.secondary)
+                        Text(data.state.title)
+                            .font(.headline)
+                            .lineLimit(2)
+                        Text("\(data.state.episodeLabel) · \(data.state.detail)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
                     }
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    Link(destination: URL(string: data.deepLink)!) {
-                        Text("继续播放")
-                            .font(.caption).fontWeight(.bold)
+                    Link(destination: data.safeDeepLink) {
+                        Text(data.actionTitle)
+                            .font(.caption.weight(.bold))
                             .foregroundStyle(.black)
-                            .padding(.horizontal, 10).padding(.vertical, 7)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 7)
                             .background(.orange, in: Capsule())
                     }
                 }
@@ -120,14 +153,16 @@ struct GuomuLiveActivityWidget: Widget {
                         .tint(.orange)
                 }
             } compactLeading: {
-                CoverView(path: data.coverPath).frame(width: 24, height: 30)
+                CoverView(image: data.coverImage)
+                    .frame(width: 24, height: 30)
             } compactTrailing: {
                 ProgressView(value: data.progress)
                     .progressViewStyle(.circular)
                     .tint(.orange)
                     .frame(width: 24, height: 24)
             } minimal: {
-                Image(systemName: "play.fill").foregroundStyle(.orange)
+                CoverView(image: data.coverImage)
+                    .frame(width: 22, height: 26)
             }
             .keylineTint(.orange)
         }

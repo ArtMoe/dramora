@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import 'hg_live_activity_service.dart';
+
 typedef HgNowPlayingSeekHandler = Future<void> Function(double seconds);
 
 /// iOS 锁屏/通知中心的系统“正在播放”信息。
@@ -12,6 +14,7 @@ abstract final class HgNowPlayingService {
   static Future<void> Function()? _onPause;
   static Future<void> Function()? _onToggle;
   static HgNowPlayingSeekHandler? _onSeek;
+  static final Map<String, String> _artworkPaths = {};
 
   static bool get _supported {
     return !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
@@ -58,14 +61,25 @@ abstract final class HgNowPlayingService {
     required bool isPlaying,
     required double speed,
     required String deepLink,
+    int videoId = 0,
     Map<String, String> headers = _empty,
   }) async {
     if (!_supported) return;
     try {
+      final artworkKey = '$videoId|$cover';
+      var artworkPath = _artworkPaths[artworkKey] ?? '';
+      if (cover.isNotEmpty && artworkPath.isEmpty) {
+        artworkPath = await HgLiveActivityService.prepareArtworkPath(
+          videoId: videoId,
+          cover: cover,
+        );
+        if (artworkPath.isNotEmpty) _artworkPaths[artworkKey] = artworkPath;
+      }
       await _channel.invokeMethod<void>('update', {
         'title': title,
         'subtitle': subtitle,
         'cover': cover,
+        'artworkPath': artworkPath,
         'positionMs': position.inMilliseconds,
         'durationMs': duration.inMilliseconds,
         'isPlaying': isPlaying,
@@ -84,6 +98,7 @@ abstract final class HgNowPlayingService {
     _onPause = null;
     _onToggle = null;
     _onSeek = null;
+    _artworkPaths.clear();
     try {
       await _channel.invokeMethod<void>('clear');
     } catch (_) {}

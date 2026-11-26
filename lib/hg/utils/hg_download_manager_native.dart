@@ -8,6 +8,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../api/hg_api.dart';
+import '../services/hg_background_execution_service.dart';
+import '../services/hg_live_activity_service.dart';
+import '../services/hg_notification_service.dart';
 import '../services/hg_settings.dart';
 import '../models/hg_download_models.dart';
 import '../models/hg_models.dart';
@@ -25,6 +28,7 @@ class HgDownloadManager extends ChangeNotifier {
   bool _restored = false;
   Future<void>? _restoring;
   bool _resuming = false;
+  int _activeBackgroundJobs = 0;
 
   Future<void> Function(HgDownloadTask task, int newEpisode)? onUpdateFound;
   Future<void> Function(HgDownloadTask task)? onDownloadCompleted;
@@ -254,185 +258,270 @@ class HgDownloadManager extends ChangeNotifier {
   Future<void> _downloadAll(HgVideoDetail detail) async {
     final task = taskFor(detail.id);
     if (task == null) return;
-    final episodes = _episodes(detail);
-    final directory = await _dramaDirectory(detail.id);
-    var completed = task.episodes;
-    for (final episode in episodes) {
-      if (taskFor(detail.id) == null) return;
-      if (taskFor(detail.id)?.episodes.containsKey(episode.number) ?? false) {
-        continue;
-      }
-      final episodeDir = Directory('${directory.path}/${episode.number}');
-      if (await episodeDir.exists()) {
-        await episodeDir.delete(recursive: true);
-      }
-      final completedBytes = completed.values.fold<int>(
-        0,
-        (sum, item) => sum + item.bytes,
-      );
-      _upsert(
-        taskFor(detail.id)!.copyWith(
-          state: '下载中 · 第 ${episode.number}/${episodes.length} 集',
-          lastError: '',
-          receivedBytes: completedBytes,
-          totalBytes: completedBytes,
-          speedBytesPerSecond: 0,
-          progress: completed.length / episodes.length.clamp(1, 99999),
-          updatedAt: DateTime.now().toIso8601String(),
+    await _beginDownloadBackgroundWork();
+    try {
+      final episodes = _episodes(detail);
+      if (episodes.isEmpty) return;
+      final directory = await _dramaDirectory(detail.id);
+      var completed = task.episodes;
+      var lastNotificationPercent = -1;
+      final firstEpisode = episodes.first.number;
+      unawaited(
+        HgLiveActivityService.showDownload(
+          videoId: detail.id,
+          title: detail.title,
+          cover: detail.cover,
+          tags: detail.tags,
+          episode: firstEpisode,
+          totalEpisodes: episodes.length,
+          progress: task.progress,
+          detail: '准备缓存',
+          deepLink: 'guomu://video/${detail.id}',
         ),
       );
-      try {
-        final info = await _api.playback(detail.id, episode.number);
-        final mediaHeaders = <String, String>{
-          ...hgMediaHeaders(),
-          if (info.cdnAuthKey.isNotEmpty) info.cdnAuthKey: info.cdnAuthValue,
-          if (info.cdnApp.isNotEmpty) 'x-cdn-app': info.cdnApp,
-        };
-        final dio = Dio();
-        final preferHevc =
-            !kIsWeb &&
-            (defaultTargetPlatform == TargetPlatform.iOS ||
-                defaultTargetPlatform == TargetPlatform.macOS) &&
-            info.hevcUrl.isNotEmpty;
-        var lastSpeedBytes = 0;
-        var lastSpeedAt = DateTime.now();
-        var lastUiAt = DateTime.fromMillisecondsSinceEpoch(0);
-        var lastPersistAt = DateTime.now();
-        var speed = 0;
-
-        void onProgress(HgDownloadProgressSnapshot progress) {
-          final now = DateTime.now();
-          final speedElapsed = now.difference(lastSpeedAt).inMilliseconds;
-          if (speedElapsed >= 500) {
-            final delta = progress.receivedBytes - lastSpeedBytes;
-            speed = delta <= 0 ? 0 : (delta * 1000 / speedElapsed).round();
-            lastSpeedBytes = progress.receivedBytes;
-            lastSpeedAt = now;
-          }
-          final uiElapsed = now.difference(lastUiAt).inMilliseconds;
-          if (uiElapsed < 220 &&
-              progress.completedSegments < progress.totalSegments) {
-            return;
-          }
-          lastUiAt = now;
-          final current = taskFor(detail.id);
-          if (current == null) return;
-          final episodeFraction = progress.fraction;
-          _upsert(
-            current.copyWith(
-              state: '下载中 · 第 ${episode.number}/${episodes.length} 集',
-              receivedBytes: completedBytes + progress.receivedBytes,
-              totalBytes: completedBytes + progress.totalBytes,
-              speedBytesPerSecond: speed,
-              progress:
-                  (completed.length + episodeFraction) /
-                  episodes.length.clamp(1, 99999),
-              updatedAt: now.toIso8601String(),
-            ),
-          );
-          if (now.difference(lastPersistAt).inSeconds >= 5) {
-            lastPersistAt = now;
-            unawaited(_persist());
-          }
+      unawaited(
+        HgNotificationService.showDownloadProgress(
+          task,
+          episode: firstEpisode,
+          totalEpisodes: episodes.length,
+          progress: task.progress,
+          state: '准备缓存',
+          speed: '等待网络',
+          alert: true,
+        ),
+      );
+      for (final episode in episodes) {
+        if (taskFor(detail.id) == null) return;
+        if (taskFor(detail.id)?.episodes.containsKey(episode.number) ?? false) {
+          continue;
         }
-
-        late final HgDownloadedPlaylist downloaded;
-        try {
-          downloaded = await HgHlsDownloader.download(
-            dio: dio,
-            playlistUrl: preferHevc ? info.hevcUrl : info.videoUrl,
-            directory: episodeDir,
-            headers: mediaHeaders,
-            onProgress: onProgress,
-          );
-        } catch (_) {
-          if (!preferHevc) rethrow;
-          if (await episodeDir.exists()) {
-            await episodeDir.delete(recursive: true);
-          }
-          downloaded = await HgHlsDownloader.download(
-            dio: dio,
-            playlistUrl: info.videoUrl,
-            directory: episodeDir,
-            headers: mediaHeaders,
-            onProgress: onProgress,
-          );
-        } finally {
-          dio.close(force: true);
+        final episodeDir = Directory('${directory.path}/${episode.number}');
+        if (await episodeDir.exists()) {
+          await episodeDir.delete(recursive: true);
         }
-        if (taskFor(detail.id) == null) {
-          if (await episodeDir.exists()) {
-            await episodeDir.delete(recursive: true);
-          }
-          return;
-        }
-        completed = {
-          ...completed,
-          episode.number: HgDownloadedEpisode(
-            number: episode.number,
-            directory: downloaded.directory,
-            manifestPath: downloaded.manifestPath,
-            bytes: downloaded.bytes,
-            updatedAt: DateTime.now().toIso8601String(),
-          ),
-        };
-        final completedTotal = completed.values.fold<int>(
+        final completedBytes = completed.values.fold<int>(
           0,
           (sum, item) => sum + item.bytes,
         );
         _upsert(
           taskFor(detail.id)!.copyWith(
-            episodes: completed,
-            progress: completed.length / episodes.length.clamp(1, 99999),
-            state: completed.length >= episodes.length ? '已缓存' : '下载中',
-            receivedBytes: completedTotal,
-            totalBytes: completedTotal,
+            state: '下载中 · 第 ${episode.number}/${episodes.length} 集',
+            lastError: '',
+            receivedBytes: completedBytes,
+            totalBytes: completedBytes,
             speedBytesPerSecond: 0,
+            progress: completed.length / episodes.length.clamp(1, 99999),
             updatedAt: DateTime.now().toIso8601String(),
           ),
         );
-        await _persist();
-      } catch (error) {
-        if (await episodeDir.exists()) {
-          await episodeDir.delete(recursive: true);
-        }
-        final current = taskFor(detail.id);
-        if (current != null) {
-          _upsert(
-            current.copyWith(
-              state: '已暂停',
-              lastError: error.toString(),
-              receivedBytes: completed.values.fold<int>(
-                0,
-                (sum, item) => sum + item.bytes,
+        try {
+          final info = await _api.playback(detail.id, episode.number);
+          final mediaHeaders = <String, String>{
+            ...hgMediaHeaders(),
+            if (info.cdnAuthKey.isNotEmpty) info.cdnAuthKey: info.cdnAuthValue,
+            if (info.cdnApp.isNotEmpty) 'x-cdn-app': info.cdnApp,
+          };
+          final dio = Dio();
+          final preferHevc =
+              !kIsWeb &&
+              (defaultTargetPlatform == TargetPlatform.iOS ||
+                  defaultTargetPlatform == TargetPlatform.macOS) &&
+              info.hevcUrl.isNotEmpty;
+          var lastSpeedBytes = 0;
+          var lastSpeedAt = DateTime.now();
+          var lastUiAt = DateTime.fromMillisecondsSinceEpoch(0);
+          var lastPersistAt = DateTime.now();
+          var speed = 0;
+
+          void onProgress(HgDownloadProgressSnapshot progress) {
+            final now = DateTime.now();
+            final speedElapsed = now.difference(lastSpeedAt).inMilliseconds;
+            if (speedElapsed >= 500) {
+              final delta = progress.receivedBytes - lastSpeedBytes;
+              speed = delta <= 0 ? 0 : (delta * 1000 / speedElapsed).round();
+              lastSpeedBytes = progress.receivedBytes;
+              lastSpeedAt = now;
+            }
+            final uiElapsed = now.difference(lastUiAt).inMilliseconds;
+            if (uiElapsed < 220 &&
+                progress.completedSegments < progress.totalSegments) {
+              return;
+            }
+            lastUiAt = now;
+            final current = taskFor(detail.id);
+            if (current == null) return;
+            final episodeFraction = progress.fraction;
+            final overallProgress =
+                (completed.length + episodeFraction) /
+                episodes.length.clamp(1, 99999);
+            final speedText = speed > 0 ? '${_formatBytes(speed)}/s' : '正在下载';
+            _upsert(
+              current.copyWith(
+                state: '下载中 · 第 ${episode.number}/${episodes.length} 集',
+                receivedBytes: completedBytes + progress.receivedBytes,
+                totalBytes: completedBytes + progress.totalBytes,
+                speedBytesPerSecond: speed,
+                progress: overallProgress,
+                updatedAt: now.toIso8601String(),
               ),
-              totalBytes: 0,
+            );
+            unawaited(
+              HgLiveActivityService.showDownload(
+                videoId: detail.id,
+                title: detail.title,
+                cover: detail.cover,
+                tags: detail.tags,
+                episode: episode.number,
+                totalEpisodes: episodes.length,
+                progress: overallProgress,
+                detail:
+                    '$speedText · ${progress.completedSegments}/${progress.totalSegments} 分片',
+                deepLink: 'guomu://video/${detail.id}',
+              ),
+            );
+            final percent = (overallProgress * 100).floor();
+            if (percent >= lastNotificationPercent + 5 ||
+                progress.completedSegments >= progress.totalSegments) {
+              lastNotificationPercent = percent;
+              unawaited(
+                HgNotificationService.showDownloadProgress(
+                  current,
+                  episode: episode.number,
+                  totalEpisodes: episodes.length,
+                  progress: overallProgress,
+                  state: '下载中',
+                  speed: speedText,
+                ),
+              );
+            }
+            if (now.difference(lastPersistAt).inSeconds >= 5) {
+              lastPersistAt = now;
+              unawaited(_persist());
+            }
+          }
+
+          late final HgDownloadedPlaylist downloaded;
+          try {
+            downloaded = await HgHlsDownloader.download(
+              dio: dio,
+              playlistUrl: preferHevc ? info.hevcUrl : info.videoUrl,
+              directory: episodeDir,
+              headers: mediaHeaders,
+              onProgress: onProgress,
+            );
+          } catch (_) {
+            if (!preferHevc) rethrow;
+            if (await episodeDir.exists()) {
+              await episodeDir.delete(recursive: true);
+            }
+            downloaded = await HgHlsDownloader.download(
+              dio: dio,
+              playlistUrl: info.videoUrl,
+              directory: episodeDir,
+              headers: mediaHeaders,
+              onProgress: onProgress,
+            );
+          } finally {
+            dio.close(force: true);
+          }
+          if (taskFor(detail.id) == null) {
+            if (await episodeDir.exists()) {
+              await episodeDir.delete(recursive: true);
+            }
+            return;
+          }
+          completed = {
+            ...completed,
+            episode.number: HgDownloadedEpisode(
+              number: episode.number,
+              directory: downloaded.directory,
+              manifestPath: downloaded.manifestPath,
+              bytes: downloaded.bytes,
+              updatedAt: DateTime.now().toIso8601String(),
+            ),
+          };
+          final completedTotal = completed.values.fold<int>(
+            0,
+            (sum, item) => sum + item.bytes,
+          );
+          _upsert(
+            taskFor(detail.id)!.copyWith(
+              episodes: completed,
+              progress: completed.length / episodes.length.clamp(1, 99999),
+              state: completed.length >= episodes.length ? '已缓存' : '下载中',
+              receivedBytes: completedTotal,
+              totalBytes: completedTotal,
               speedBytesPerSecond: 0,
               updatedAt: DateTime.now().toIso8601String(),
             ),
           );
+          await _persist();
+        } catch (error) {
+          if (await episodeDir.exists()) {
+            await episodeDir.delete(recursive: true);
+          }
+          final current = taskFor(detail.id);
+          if (current != null) {
+            _upsert(
+              current.copyWith(
+                state: '已暂停',
+                lastError: error.toString(),
+                receivedBytes: completed.values.fold<int>(
+                  0,
+                  (sum, item) => sum + item.bytes,
+                ),
+                totalBytes: 0,
+                speedBytesPerSecond: 0,
+                updatedAt: DateTime.now().toIso8601String(),
+              ),
+            );
+          }
+          await _persist();
+          break;
         }
-        await _persist();
-        break;
       }
+      final current = taskFor(detail.id);
+      if (current != null) {
+        final finished = current.copyWith(
+          totalEpisodes: episodes.length,
+          progress: completed.length / episodes.length.clamp(1, 99999),
+          state: current.state == '已暂停'
+              ? '已暂停'
+              : completed.length >= episodes.length
+              ? '已缓存'
+              : '部分缓存',
+          speedBytesPerSecond: 0,
+          updatedAt: DateTime.now().toIso8601String(),
+        );
+        _upsert(finished);
+        await _persist();
+        if (finished.isComplete) await onDownloadCompleted?.call(finished);
+      }
+    } finally {
+      await HgLiveActivityService.endDownload(detail.id);
+      unawaited(HgNotificationService.clearDownloadProgress(detail.id));
+      await _endDownloadBackgroundWork();
     }
-    final current = taskFor(detail.id);
-    if (current != null) {
-      final finished = current.copyWith(
-        totalEpisodes: episodes.length,
-        progress: completed.length / episodes.length.clamp(1, 99999),
-        state: current.state == '已暂停'
-            ? '已暂停'
-            : completed.length >= episodes.length
-            ? '已缓存'
-            : '部分缓存',
-        speedBytesPerSecond: 0,
-        updatedAt: DateTime.now().toIso8601String(),
-      );
-      _upsert(finished);
-      await _persist();
-      if (finished.isComplete) await onDownloadCompleted?.call(finished);
+  }
+
+  Future<void> _beginDownloadBackgroundWork() async {
+    _activeBackgroundJobs++;
+    if (_activeBackgroundJobs == 1) {
+      await HgBackgroundExecutionService.setDownloadActive(true);
     }
+  }
+
+  Future<void> _endDownloadBackgroundWork() async {
+    if (_activeBackgroundJobs > 0) _activeBackgroundJobs--;
+    if (_activeBackgroundJobs == 0) {
+      await HgBackgroundExecutionService.setDownloadActive(false);
+    }
+  }
+
+  static String _formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
   void _enqueueDownload(HgVideoDetail detail) {

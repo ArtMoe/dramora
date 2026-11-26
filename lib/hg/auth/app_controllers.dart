@@ -13,6 +13,7 @@ class AuthController extends ChangeNotifier with WidgetsBindingObserver {
   AuthController(this._api, this._prefs) {
     _token = _prefs.getString(_tokenKey);
     _api.token = _token;
+    _api.bindAuthenticatedSource(_prefs.getString(_sourceKey));
     _api.onAuthenticationExpired = _handleAuthenticationExpired;
     WidgetsBinding.instance.addObserver(this);
     final cachedUser = _prefs.getString(_userKey);
@@ -31,7 +32,10 @@ class AuthController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   static const _tokenKey = 'guomu.hg.token';
+  static const _sourceKey = 'guomu.hg.token.source';
   static const _userKey = 'guomu.hg.user';
+  static const _sessionCheckedAtKey = 'guomu.hg.session.checked_at';
+  static const _sessionCheckInterval = Duration(minutes: 30);
 
   final HgApi _api;
   final SharedPreferences _prefs;
@@ -51,10 +55,18 @@ class AuthController extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> restore() async {
     if (!isLoggedIn || _restoring) return;
+    // A freshly issued token and a recently verified cached session should not
+    // be immediately rejected by a transient edge response when the app
+    // resumes. Authenticated actions still confirm the session on 401.
+    if (_user != null &&
+        (_sessionCheckedRecently() || !_prefs.containsKey(_sourceKey))) {
+      return;
+    }
     _restoring = true;
     notifyListeners();
     try {
       _applyUser(await _api.me());
+      await _markSessionChecked();
     } on HgLoginRequiredException {
       // HgApi clears the session only after confirming the rejection across
       // sources. A single transient 401 must not force another login.
@@ -88,6 +100,7 @@ class AuthController extends ChangeNotifier with WidgetsBindingObserver {
     if (!isLoggedIn) return;
     try {
       _applyUser(await _api.me());
+      await _markSessionChecked();
       notifyListeners();
     } on HgLoginRequiredException {
       rethrow;
@@ -216,6 +229,11 @@ class AuthController extends ChangeNotifier with WidgetsBindingObserver {
     _token = token;
     _api.token = token;
     await _prefs.setString(_tokenKey, token);
+    final source = _api.authenticatedSource ?? _api.baseUrl;
+    if (source.isNotEmpty) {
+      await _prefs.setString(_sourceKey, source);
+    }
+    await _markSessionChecked();
     _applyUser(user);
     await _prefs.setString(_userKey, jsonEncode(user.toJson()));
     notifyListeners();
@@ -246,6 +264,20 @@ class AuthController extends ChangeNotifier with WidgetsBindingObserver {
     await _prefs.setString(_userKey, jsonEncode(updated.toJson()));
   }
 
+  bool _sessionCheckedRecently() {
+    final checkedAt = _prefs.getInt(_sessionCheckedAtKey) ?? 0;
+    if (checkedAt <= 0) return false;
+    final elapsed = DateTime.now().millisecondsSinceEpoch - checkedAt;
+    return elapsed >= 0 && elapsed < _sessionCheckInterval.inMilliseconds;
+  }
+
+  Future<void> _markSessionChecked() async {
+    await _prefs.setInt(
+      _sessionCheckedAtKey,
+      DateTime.now().millisecondsSinceEpoch,
+    );
+  }
+
   Future<void> _clearSession() async {
     _token = null;
     _user = null;
@@ -253,7 +285,9 @@ class AuthController extends ChangeNotifier with WidgetsBindingObserver {
     _likedEpisodes = {};
     _api.token = null;
     await _prefs.remove(_tokenKey);
+    await _prefs.remove(_sourceKey);
     await _prefs.remove(_userKey);
+    await _prefs.remove(_sessionCheckedAtKey);
     notifyListeners();
   }
 
