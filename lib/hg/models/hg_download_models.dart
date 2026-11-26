@@ -39,6 +39,7 @@ class HgDownloadTask {
     required this.videoId,
     required this.title,
     required this.cover,
+    this.localCover = '',
     this.tags = const [],
     this.totalEpisodes = 0,
     this.episodes = const {},
@@ -57,6 +58,7 @@ class HgDownloadTask {
   final int videoId;
   final String title;
   final String cover;
+  final String localCover;
   final List<String> tags;
   final int totalEpisodes;
   final Map<int, HgDownloadedEpisode> episodes;
@@ -77,13 +79,16 @@ class HgDownloadTask {
       state == '排队中' ||
       state == '等待恢复';
   bool get isComplete =>
-      totalEpisodes > 0 && episodes.length >= totalEpisodes && !isDownloading;
+      episodes.isNotEmpty &&
+      !isDownloading &&
+      (totalEpisodes <= 0 || episodes.length >= totalEpisodes);
   int get downloadedBytes =>
       episodes.values.fold(0, (total, episode) => total + episode.bytes);
 
   HgDownloadTask copyWith({
     String? title,
     String? cover,
+    String? localCover,
     List<String>? tags,
     int? totalEpisodes,
     Map<int, HgDownloadedEpisode>? episodes,
@@ -102,6 +107,7 @@ class HgDownloadTask {
       videoId: videoId,
       title: title ?? this.title,
       cover: cover ?? this.cover,
+      localCover: localCover ?? this.localCover,
       tags: tags ?? this.tags,
       totalEpisodes: totalEpisodes ?? this.totalEpisodes,
       episodes: episodes ?? this.episodes,
@@ -122,6 +128,7 @@ class HgDownloadTask {
     'video_id': videoId,
     'title': title,
     'cover': cover,
+    'local_cover': localCover,
     'tags': tags,
     'total_episodes': totalEpisodes,
     'episodes': {
@@ -157,6 +164,7 @@ class HgDownloadTask {
       videoId: (json['video_id'] as num?)?.toInt() ?? 0,
       title: json['title']?.toString() ?? '',
       cover: json['cover']?.toString() ?? '',
+      localCover: json['local_cover']?.toString() ?? '',
       tags: rawTags is List
           ? rawTags.map((item) => item.toString()).toList(growable: false)
           : const [],

@@ -390,6 +390,7 @@ void main() {
       videoId: 10586,
       title: '任意门',
       cover: 'https://example.test/cover.jpg',
+      localCover: '/documents/guomu/covers/cover-10586.jpg',
       totalEpisodes: 12,
       episodes: const {
         1: HgDownloadedEpisode(
@@ -407,6 +408,7 @@ void main() {
     expect(decoded.episodes[1]?.manifestPath, endsWith('index.m3u8'));
     expect(decoded.downloadedBytes, 1024);
     expect(decoded.totalEpisodes, 12);
+    expect(decoded.localCover, endsWith('cover-10586.jpg'));
   });
 
   test('stores playback history locally and deduplicates by video', () async {

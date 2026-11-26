@@ -15,6 +15,7 @@ import '../services/hg_settings.dart';
 import '../models/hg_download_models.dart';
 import '../models/hg_models.dart';
 import 'hg_hls_downloader_native.dart';
+import '../widgets/secure_cover.dart';
 
 class HgDownloadManager extends ChangeNotifier {
   HgDownloadManager(this._api, this._prefs);
@@ -24,6 +25,7 @@ class HgDownloadManager extends ChangeNotifier {
   final SharedPreferences _prefs;
   final List<HgDownloadTask> _tasks = [];
   final Set<int> _queuedVideoIds = <int>{};
+  final Map<int, Future<String>> _coverJobs = <int, Future<String>>{};
   Future<void> _queue = Future<void>.value();
   bool _restored = false;
   Future<void>? _restoring;
@@ -66,15 +68,23 @@ class HgDownloadManager extends ChangeNotifier {
           episodes[episode.number] = episode;
         }
       }
+      var localCover = task.localCover;
+      if (localCover.isNotEmpty && !await File(localCover).exists()) {
+        localCover = '';
+      }
       var normalized = task.copyWith(
         episodes: episodes,
         speedBytesPerSecond: 0,
+        localCover: localCover,
       );
       if (normalized.isDownloading) {
         normalized = normalized.copyWith(state: '等待恢复');
         interrupted.add(normalized);
       }
       _tasks.add(normalized);
+      if (normalized.localCover.isEmpty && normalized.cover.isNotEmpty) {
+        unawaited(_ensureLocalCover(normalized.videoId, normalized.cover));
+      }
     }
     _restored = true;
     notifyListeners();
@@ -131,6 +141,7 @@ class HgDownloadManager extends ChangeNotifier {
           videoId: detail.id,
           title: detail.title,
           cover: detail.cover,
+          localCover: existing?.localCover ?? '',
           tags: detail.tags,
           totalEpisodes: _episodeCount(detail),
           autoUpdate: shouldAutoUpdate,
@@ -155,6 +166,9 @@ class HgDownloadManager extends ChangeNotifier {
     );
     _upsert(task);
     await _persist();
+    if (task.localCover.isEmpty && task.cover.isNotEmpty) {
+      unawaited(_ensureLocalCover(detail.id, detail.cover));
+    }
     if (downloadNow) {
       _enqueueDownload(detail);
     }
@@ -240,8 +254,10 @@ class HgDownloadManager extends ChangeNotifier {
 
   Future<void> remove(int videoId) async {
     await restore();
+    final removedCover = taskFor(videoId)?.localCover ?? '';
     _tasks.removeWhere((task) => task.videoId == videoId);
     await _deleteDirectory(await _dramaDirectory(videoId));
+    await _deleteCover(videoId, removedCover);
     await _persist();
     notifyListeners();
   }
@@ -250,6 +266,7 @@ class HgDownloadManager extends ChangeNotifier {
     await restore();
     final dir = await _downloadRoot();
     if (await dir.exists()) await dir.delete(recursive: true);
+    await _deleteDirectory(await _coverRoot());
     _tasks.clear();
     await _persist();
     notifyListeners();
@@ -559,6 +576,57 @@ class HgDownloadManager extends ChangeNotifier {
   Future<Directory> _downloadRoot() async {
     final docs = await getApplicationDocumentsDirectory();
     return Directory('${docs.path}/guomu/downloads');
+  }
+
+  Future<Directory> _coverRoot() async {
+    final docs = await getApplicationDocumentsDirectory();
+    return Directory('${docs.path}/guomu/covers');
+  }
+
+  Future<String> _ensureLocalCover(int videoId, String cover) {
+    final active = _coverJobs[videoId];
+    if (active != null) return active;
+    final job = _cacheCover(videoId, cover).whenComplete(() {
+      _coverJobs.remove(videoId);
+    });
+    _coverJobs[videoId] = job;
+    return job;
+  }
+
+  Future<String> _cacheCover(int videoId, String cover) async {
+    final current = taskFor(videoId);
+    if (current == null || cover.trim().isEmpty) return '';
+    if (current.localCover.isNotEmpty &&
+        await File(current.localCover).exists()) {
+      return current.localCover;
+    }
+    try {
+      final bytes = await HgCoverRepository.instance
+          .load(cover)
+          .timeout(const Duration(seconds: 20));
+      if (bytes.isEmpty) return '';
+      final directory = await _coverRoot();
+      await directory.create(recursive: true);
+      final file = File('${directory.path}/cover-$videoId.jpg');
+      await file.writeAsBytes(bytes, flush: true);
+      final latest = taskFor(videoId);
+      if (latest != null) {
+        _upsert(latest.copyWith(localCover: file.path));
+        await _persist();
+      }
+      return file.path;
+    } catch (_) {
+      return '';
+    }
+  }
+
+  Future<void> _deleteCover(int videoId, [String path = '']) async {
+    if (path.isNotEmpty) {
+      final file = File(path);
+      if (await file.exists()) await file.delete();
+    }
+    final fallback = File('${(await _coverRoot()).path}/cover-$videoId.jpg');
+    if (await fallback.exists()) await fallback.delete();
   }
 
   Future<Directory> _dramaDirectory(int videoId) async {

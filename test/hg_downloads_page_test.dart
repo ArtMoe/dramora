@@ -13,18 +13,24 @@ class _FakeApi extends HgApi {
 }
 
 class _PreviewDownloads extends HgDownloadManager {
-  _PreviewDownloads(this.api, SharedPreferences prefs, this.task)
+  _PreviewDownloads(this.api, SharedPreferences prefs, this._previewTasks)
     : super(api, prefs);
 
   final _FakeApi api;
-  final HgDownloadTask task;
+  final List<HgDownloadTask> _previewTasks;
   int resumeCalls = 0;
+  int removeCalls = 0;
 
   @override
-  List<HgDownloadTask> get tasks => [task];
+  List<HgDownloadTask> get tasks => _previewTasks;
 
   @override
-  HgDownloadTask? taskFor(int videoId) => task.videoId == videoId ? task : null;
+  HgDownloadTask? taskFor(int videoId) {
+    for (final task in _previewTasks) {
+      if (task.videoId == videoId) return task;
+    }
+    return null;
+  }
 
   @override
   Future<void> restore() async {}
@@ -33,12 +39,21 @@ class _PreviewDownloads extends HgDownloadManager {
   Future<void> resumeDownload(int videoId) async {
     resumeCalls++;
   }
+
+  @override
+  Future<void> remove(int videoId) async {
+    removeCalls++;
+  }
 }
 
-Future<_PreviewDownloads> _managerFor(HgDownloadTask task) async {
+Future<_PreviewDownloads> _managerFor(HgDownloadTask task) {
+  return _managerForTasks([task]);
+}
+
+Future<_PreviewDownloads> _managerForTasks(List<HgDownloadTask> tasks) async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
-  return _PreviewDownloads(_FakeApi(), prefs, task);
+  return _PreviewDownloads(_FakeApi(), prefs, tasks);
 }
 
 Widget _host(HgDownloadManager manager, HgApi api) {
@@ -122,5 +137,48 @@ void main() {
     await tester.pump();
     expect(manager.resumeCalls, 1);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('downloaded tab shows completed tasks and swipe reveals delete', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final manager = await _managerFor(
+      const HgDownloadTask(
+        videoId: 20001,
+        title: '已下载短剧',
+        cover: 'https://example.test/cover.jpg',
+        localCover: '/documents/guomu/covers/cover-20001.jpg',
+        state: '已缓存',
+        totalEpisodes: 1,
+        episodes: {
+          1: HgDownloadedEpisode(
+            number: 1,
+            directory: '/documents/guomu/downloads/20001/1',
+            manifestPath: '/documents/guomu/downloads/20001/1/index.m3u8',
+            bytes: 1024,
+            updatedAt: '2026-11-26T00:00:00Z',
+          ),
+        },
+      ),
+    );
+    addTearDown(manager.dispose);
+    await tester.pumpWidget(_host(manager, manager.api));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('已下载'));
+    await tester.pumpAndSettle();
+    expect(find.text('已下载短剧'), findsOneWidget);
+
+    final swipe = find.byKey(const ValueKey('hg-download-swipe-20001'));
+    await tester.drag(swipe, const Offset(-100, 0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('hg-download-delete-20001')));
+    await tester.pump();
+    expect(manager.removeCalls, 1);
   });
 }

@@ -18,62 +18,213 @@ class DownloadsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final manager = context.watch<HgDownloadManager>();
     final tasks = manager.tasks;
-    return Scaffold(
-      backgroundColor: context.hgSurfaceLow,
-      appBar: AppBar(
-        title: const Text('我的下载'),
-        actions: [
-          IconButton(
-            tooltip: '检查追更',
-            onPressed: () async {
-              await context.read<HgDownloadManager>().checkForUpdates();
-              if (context.mounted) showHgSnack(context, '已检查追更');
-            },
-            icon: const Icon(Icons.sync_rounded),
-          ),
-          if (tasks.isNotEmpty)
-            TextButton(
+    final downloading = tasks
+        .where((task) => !task.isComplete)
+        .toList(growable: false);
+    final downloaded = tasks
+        .where((task) => task.isComplete)
+        .toList(growable: false);
+    return DefaultTabController(
+      length: 2,
+      initialIndex: downloading.isEmpty && downloaded.isNotEmpty ? 1 : 0,
+      child: Scaffold(
+        backgroundColor: context.hgSurfaceLow,
+        appBar: AppBar(
+          title: const Text('我的下载'),
+          actions: [
+            IconButton(
+              tooltip: '检查追更',
               onPressed: () async {
-                final ok = await showHgConfirmSheet(
-                  context,
-                  title: '清除全部缓存？',
-                  message: '会删除已下载的所有短剧文件，不影响账号和历史。',
-                  confirmLabel: '清除全部',
-                  destructive: true,
-                  icon: Icons.delete_outline_rounded,
-                );
-                if (ok) await manager.clear();
+                await context.read<HgDownloadManager>().checkForUpdates();
+                if (context.mounted) showHgSnack(context, '已检查追更');
               },
-              child: const Text('清空'),
+              icon: const Icon(Icons.sync_rounded),
             ),
-        ],
+            if (tasks.isNotEmpty)
+              TextButton(
+                onPressed: () async {
+                  final ok = await showHgConfirmSheet(
+                    context,
+                    title: '清除全部缓存？',
+                    message: '会删除已下载的所有短剧文件和本地封面，不影响账号和历史。',
+                    confirmLabel: '清除全部',
+                    destructive: true,
+                    icon: Icons.delete_outline_rounded,
+                  );
+                  if (ok) await manager.clear();
+                },
+                child: const Text('清空'),
+              ),
+          ],
+          bottom: const TabBar(
+            tabs: [
+              Tab(text: '下载中'),
+              Tab(text: '已下载'),
+            ],
+          ),
+        ),
+        body: TabBarView(
+          children: [
+            _DownloadTaskList(
+              tasks: downloading,
+              manager: manager,
+              emptyTitle: '没有进行中的下载',
+              emptyMessage: '在短剧详情页点击“缓存全集”，这里会显示下载进度。',
+            ),
+            _DownloadTaskList(
+              tasks: downloaded,
+              manager: manager,
+              emptyTitle: '还没有已下载短剧',
+              emptyMessage: '缓存完成的内容会出现在这里，离线也可以继续观看。',
+            ),
+          ],
+        ),
       ),
-      body: tasks.isEmpty
-          ? const HgEmptyState(
-              icon: Icons.download_for_offline_outlined,
-              title: '还没有离线缓存',
-              message: '在短剧详情页点击“缓存全集”，未完结剧集也会记录追更。',
-            )
-          : ListView.separated(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 30),
-              itemCount: tasks.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final task = tasks[index];
-                return _DownloadTile(
-                  task: task,
-                  manager: manager,
-                  onOpen: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => ShortVideoPage(
-                        videoIds: [task.videoId],
-                        title: task.title,
-                      ),
+    );
+  }
+}
+
+class _DownloadTaskList extends StatelessWidget {
+  const _DownloadTaskList({
+    required this.tasks,
+    required this.manager,
+    required this.emptyTitle,
+    required this.emptyMessage,
+  });
+
+  final List<HgDownloadTask> tasks;
+  final HgDownloadManager manager;
+  final String emptyTitle;
+  final String emptyMessage;
+
+  @override
+  Widget build(BuildContext context) {
+    if (tasks.isEmpty) {
+      return HgEmptyState(
+        icon: Icons.download_for_offline_outlined,
+        title: emptyTitle,
+        message: emptyMessage,
+      );
+    }
+    return ListView.separated(
+      key: PageStorageKey<String>(emptyTitle),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 30),
+      itemCount: tasks.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 12),
+      itemBuilder: (context, index) {
+        final task = tasks[index];
+        return _SwipeDeleteTile(
+          key: ValueKey('hg-download-swipe-${task.videoId}'),
+          deleteKey: ValueKey('hg-download-delete-${task.videoId}'),
+          onDelete: () => manager.remove(task.videoId),
+          child: _DownloadTile(
+            task: task,
+            manager: manager,
+            onOpen: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) =>
+                    ShortVideoPage(videoIds: [task.videoId], title: task.title),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _SwipeDeleteTile extends StatefulWidget {
+  const _SwipeDeleteTile({
+    super.key,
+    required this.child,
+    required this.onDelete,
+    required this.deleteKey,
+  });
+
+  final Widget child;
+  final Future<void> Function() onDelete;
+  final Key deleteKey;
+
+  @override
+  State<_SwipeDeleteTile> createState() => _SwipeDeleteTileState();
+}
+
+class _SwipeDeleteTileState extends State<_SwipeDeleteTile> {
+  static const double _actionWidth = 88;
+  double _offset = 0;
+  bool _open = false;
+
+  void _onDragUpdate(DragUpdateDetails details) {
+    setState(() {
+      _offset = (_offset + details.delta.dx).clamp(-_actionWidth, 0.0);
+    });
+  }
+
+  void _onDragEnd(DragEndDetails details) {
+    final shouldOpen =
+        details.primaryVelocity != null && details.primaryVelocity! < -240 ||
+        _offset < -_actionWidth / 2;
+    setState(() {
+      _open = shouldOpen;
+      _offset = shouldOpen ? -_actionWidth : 0;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(18),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: SizedBox(
+                width: _actionWidth,
+                child: Material(
+                  color: const Color(0xFFE5484D),
+                  child: InkWell(
+                    key: widget.deleteKey,
+                    onTap: () async {
+                      await widget.onDelete();
+                      if (mounted) {
+                        setState(() {
+                          _open = false;
+                          _offset = 0;
+                        });
+                      }
+                    },
+                    child: const Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.delete_outline_rounded, color: Colors.white),
+                        SizedBox(height: 4),
+                        Text(
+                          '删除',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                );
-              },
+                ),
+              ),
             ),
+          ),
+          Transform.translate(
+            offset: Offset(_offset, 0),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onHorizontalDragUpdate: _onDragUpdate,
+              onHorizontalDragEnd: _onDragEnd,
+              child: IgnorePointer(ignoring: _open, child: widget.child),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -141,7 +292,36 @@ class _DownloadTile extends StatelessWidget {
                 child: SizedBox(
                   width: 70,
                   height: 96,
-                  child: HgCoverImage(url: task.cover, title: task.title),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      HgCoverImage(
+                        url: task.localCover.isNotEmpty
+                            ? task.localCover
+                            : task.cover,
+                        title: task.title,
+                      ),
+                      if (task.isComplete)
+                        Positioned(
+                          right: 5,
+                          bottom: 5,
+                          child: DecoratedBox(
+                            decoration: const BoxDecoration(
+                              color: Color(0xE6FF6B3D),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Padding(
+                              padding: EdgeInsets.all(3),
+                              child: Icon(
+                                Icons.check_rounded,
+                                size: 12,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -233,25 +413,6 @@ class _DownloadTile extends StatelessWidget {
                             },
                             icon: const Icon(Icons.refresh_rounded, size: 20),
                           ),
-                        IconButton(
-                          tooltip: '删除缓存',
-                          onPressed: () async {
-                            final remove = await showHgConfirmSheet(
-                              context,
-                              title: '删除这部短剧的缓存？',
-                              message: '会删除“${task.title}”的离线文件，观看记录仍会保留。',
-                              confirmLabel: '删除缓存',
-                              destructive: true,
-                              icon: Icons.delete_outline_rounded,
-                            );
-                            if (remove) await manager.remove(task.videoId);
-                          },
-                          icon: Icon(
-                            Icons.delete_outline_rounded,
-                            color: context.hgMuted,
-                            size: 20,
-                          ),
-                        ),
                       ],
                     ),
                   ],

@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import '../api/hg_api.dart';
 import '../models/hg_models.dart';
 import '../theme/hg_theme.dart';
+import 'hg_local_cover_stub.dart' if (dart.library.io) 'hg_local_cover_io.dart';
 import 'hg_cover_crypto.dart' as cover_crypto;
 
 class HgCoverCrypto {
@@ -62,10 +63,7 @@ class HgCoverRepository {
       _cache[url] = cached;
       return cached;
     }
-    final future = _download(url).catchError((
-      Object error,
-      StackTrace stackTrace,
-    ) {
+    final future = _load(url).catchError((Object error, StackTrace stackTrace) {
       _cache.remove(url);
       Error.throwWithStackTrace(error, stackTrace);
     });
@@ -74,6 +72,12 @@ class HgCoverRepository {
       _cache.remove(_cache.keys.first);
     }
     return future;
+  }
+
+  Future<Uint8List> _load(String url) async {
+    final local = await readLocalCoverBytes(url);
+    if (local != null) return local;
+    return _download(url);
   }
 
   Future<Uint8List> _download(String url) async {
