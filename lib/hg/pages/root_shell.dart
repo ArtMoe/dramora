@@ -238,8 +238,6 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
         if (!mounted) return;
         showHgAdaptiveSheetBuilder<void>(
           context,
-          isDismissible: false,
-          enableDrag: false,
           childScrollable: true,
           barrierColor: Colors.black.withValues(alpha: 0.42),
           initialSize: 0.68,

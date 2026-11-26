@@ -4,6 +4,7 @@ import 'package:guomu/hg/api/hg_api.dart';
 import 'package:guomu/hg/auth/app_controllers.dart';
 import 'package:guomu/hg/pages/settings_page.dart';
 import 'package:guomu/hg/theme/hg_theme.dart';
+import 'package:guomu/hg/widgets/hg_adaptive_sheet.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -84,4 +85,74 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('recovery source sheet can be dismissed after using a source', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final api = HgApi(baseUrl: 'https://example.test');
+    final source = SourceController(
+      prefs,
+      probeSource: (address) async => HgSourceProbeResult(
+        baseUrl: address,
+        available: true,
+        latency: const Duration(milliseconds: 40),
+      ),
+    );
+    addTearDown(source.dispose);
+
+    bool dismissed = false;
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          Provider<HgApi>.value(value: api),
+          ChangeNotifierProvider.value(value: source),
+        ],
+        child: MaterialApp(
+          theme: buildHgTheme(Brightness.dark),
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => Center(
+                child: TextButton(
+                  onPressed: () async {
+                    dismissed =
+                        await showHgAdaptiveSheetBuilder<bool>(
+                          context,
+                          isDismissible: true,
+                          enableDrag: true,
+                          childScrollable: true,
+                          builder: (_) =>
+                              const HgSourceEditorSheet(recovery: true),
+                        ) ??
+                        false;
+                  },
+                  child: const Text('open recovery'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await source.probeSources();
+    await tester.tap(find.text('open recovery'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('hg-adaptive-sheet')), findsOneWidget);
+
+    final continueButton = find.text('继续使用');
+    await tester.ensureVisible(continueButton);
+    await tester.pumpAndSettle();
+    await tester.tap(continueButton);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('hg-adaptive-sheet')), findsNothing);
+    expect(dismissed, isFalse);
+    expect(tester.takeException(), isNull);
+  });
 }

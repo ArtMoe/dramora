@@ -497,6 +497,9 @@ class SourceController extends ChangeNotifier
       probe.latency ?? const Duration(seconds: 3),
       promote: false,
     );
+    if (_pool.activeSource == null) _pool.setActive(normalized);
+    _needsManual = false;
+    _syncRuntimeBaseUrl();
     await _persist();
     notifyListeners();
     return normalized;

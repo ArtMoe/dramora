@@ -89,6 +89,48 @@ Map<String, dynamic> _me() => {
 
 void main() {
   test(
+    'playback stays query-token-free in both guest and signed-in states',
+    () async {
+      final seenPaths = <String>[];
+      late _AuthServer endpoint;
+      endpoint = _AuthServer(
+        await HttpServer.bind(InternetAddress.loopbackIPv4, 0),
+        (source, path, call) {
+          seenPaths.add(path);
+          if (Uri.parse(path).path == '/api/videos/12/episodes/1/playback') {
+            if (Uri.parse(path).queryParameters.containsKey('token')) {
+              return (statusCode: 200, body: {'status': 0, 'msg': '播放参数无效'});
+            }
+            return (
+              statusCode: 200,
+              body: {
+                'status': 1,
+                'data': {
+                  'streams': {'main': 'https://cdn.test/main.m3u8'},
+                },
+              },
+            );
+          }
+          return (statusCode: 404, body: {'status': 0});
+        },
+      );
+      addTearDown(endpoint.close);
+      final api = HgApi(
+        dio: Dio(),
+        sourceRouter: _TestRouter([endpoint.origin]),
+      );
+
+      final guest = await api.playback(12, 1);
+      api.token = 'query-token';
+      final signedIn = await api.playback(12, 1);
+
+      expect(guest.videoUrl, 'https://cdn.test/main.m3u8');
+      expect(signedIn.videoUrl, 'https://cdn.test/main.m3u8');
+      expect(seenPaths, List.filled(2, '/api/videos/12/episodes/1/playback'));
+    },
+  );
+
+  test(
     'authenticated requests use the upstream token query parameter',
     () async {
       final seenPaths = <String>[];

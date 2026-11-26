@@ -1530,18 +1530,30 @@ class HgApi {
   }
 
   /// The upstream direct API authenticates account requests with a `token`
-  /// query parameter. Bearer headers are accepted by older edge deployments
-  /// but return 401 on the current source, including immediately after login.
+  /// query parameter. Playback and public content endpoints reject this
+  /// parameter ("播放参数无效"), so only account and user-state routes use it.
+  /// Changing this list requires updating test/hg_api_auth_test.dart.
   String _authenticatedPath(String path) {
     final activeToken = token?.trim() ?? '';
     if (path.isEmpty ||
         activeToken.isEmpty ||
         _isLoginOrRegistrationPath(path) ||
+        !_requiresQueryToken(path) ||
         RegExp(r'(?:[?&])token=').hasMatch(path)) {
       return path;
     }
     final separator = path.contains('?') ? '&' : '?';
     return '$path${separator}token=${Uri.encodeQueryComponent(activeToken)}';
+  }
+
+  bool _requiresQueryToken(String path) {
+    return path.startsWith('/api/account/') ||
+        path.startsWith('/api/users/me/') ||
+        RegExp(r'^/api/videos/\d+/(like|collect)(?:\?|$)').hasMatch(path) ||
+        RegExp(r'^/api/posts/\d+/(like|collect)(?:\?|$)').hasMatch(path) ||
+        RegExp(r'^/api/posts/\d+/comments/\d+/like(?:\?|$)').hasMatch(path) ||
+        RegExp(r'^/api/videos/\d+/comments/\d+/like(?:\?|$)').hasMatch(path) ||
+        RegExp(r'^/api/users/\d+/follow(?:\?|$)').hasMatch(path);
   }
 
   Future<bool> _confirmSessionInvalid(String expectedToken) {

@@ -1,21 +1,21 @@
 abstract final class HgAppMetadata {
-  static const String version = '1.4.36';
-  static const String buildNumber = '42';
-  static const String versionLabel = 'v1.4.36 (42)';
-  static const String releaseTitle = '登录持久化与导航细节优化版';
+  static const String version = '1.4.37';
+  static const String buildNumber = '43';
+  static const String versionLabel = 'v1.4.37 (43)';
+  static const String releaseTitle = '登录与播放兼容修复版';
   static const List<String> releaseNotes = [
-    '登录鉴权已对齐黄果当前真实接口，修复 iOS 登录成功后立即掉线的问题。',
-    '登录 token、用户资料和签发数据源持久保存在设备，重启应用无需重复登录。',
-    '会话凭据失效时会自动清理旧登录状态，并直接提示“登录状态已失效，请重新登录”。',
-    '底部导航的选中高亮现在完整包裹图标和文字，选中层级更清晰。',
+    '修复登录后播放接口因携带账号凭据出现“播放参数无效”的问题。',
+    '账号相关接口继续使用黄果当前真实鉴权，登录态下点赞、收藏、消息和列表请求保持正常。',
+    '无可用数据源时的恢复面板现在可以关闭，并可在同步或测速后直接继续使用。',
+    '登录凭据继续保存在设备，会话失效时仍会提示重新登录。',
   ];
 
   static const List<HgReleaseRecord> releaseHistory = [
     HgReleaseRecord(
-      version: 'v1.4.36',
-      buildNumber: '42',
+      version: 'v1.4.37',
+      buildNumber: '43',
       date: '2026-11-26',
-      title: '登录持久化与导航细节优化版',
+      title: '登录与播放兼容修复版',
       features: [
         '登录 token、账号资料和签发数据源持久保存在设备，重启应用后继续使用原登录状态。',
         '启动时检测到已失效的会话会清理本地旧凭据，并打开登录面板提示重新登录。',

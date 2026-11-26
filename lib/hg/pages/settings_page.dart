@@ -790,6 +790,7 @@ class _SourceEditorSheetState extends State<HgSourceEditorSheet> {
       final sourceController = context.read<SourceController>();
       await sourceController.addSource(value);
       if (!mounted) return;
+      context.read<HgApi>().setBaseUrl(sourceController.baseUrl);
       _controller.clear();
       setState(() => _message = '已添加，点击地址即可切换');
     } on FormatException catch (error) {
@@ -850,6 +851,12 @@ class _SourceEditorSheetState extends State<HgSourceEditorSheet> {
     } finally {
       if (mounted) setState(() => _speedTesting = false);
     }
+  }
+
+  bool get _hasUsableSource {
+    return context.read<SourceController>().sourceHealth.any(
+      (item) => item.hasBeenChecked && !item.isCoolingDown,
+    );
   }
 
   String _checkedLabel(DateTime? value) {
@@ -1022,6 +1029,16 @@ class _SourceEditorSheetState extends State<HgSourceEditorSheet> {
                 ),
               ],
             ),
+            if (widget.recovery && _hasUsableSource) ...[
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  child: const Text('继续使用'),
+                ),
+              ),
+            ],
             if (busy)
               const Padding(
                 padding: EdgeInsets.only(top: 12),
