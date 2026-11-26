@@ -51,6 +51,14 @@ class _RecoveryApi extends HgApi {
   Future<void> logout() async {}
 }
 
+class _ExpiredRestoreApi extends _RecoveryApi {
+  @override
+  Future<HgUser> me() async {
+    meCalls++;
+    throw const HgLoginRequiredException('登录状态已失效，请重新登录', true);
+  }
+}
+
 Future<SharedPreferences> _stalePreferences() async {
   SharedPreferences.setMockInitialValues({
     'guomu.hg.token': 'expired-token',
@@ -104,6 +112,23 @@ void main() {
     expect(prefs.getString('guomu.hg.token'), isNull);
     expect(prefs.getString('guomu.hg.user'), isNull);
   });
+
+  test(
+    'an invalid persisted session is cleared and marked for prompting',
+    () async {
+      final prefs = await _stalePreferences();
+      final auth = AuthController(_ExpiredRestoreApi(), prefs);
+      addTearDown(auth.dispose);
+
+      await auth.restore();
+
+      expect(auth.isLoggedIn, isFalse);
+      expect(auth.user, isNull);
+      expect(prefs.getString('guomu.hg.token'), isNull);
+      expect(auth.takeSessionExpiredNotice(), isTrue);
+      expect(auth.takeSessionExpiredNotice(), isFalse);
+    },
+  );
 
   test('a recent login is kept without an immediate session refresh', () async {
     SharedPreferences.setMockInitialValues({

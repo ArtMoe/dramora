@@ -31,4 +31,15 @@ void main() {
     expect(find.byIcon(Icons.close_rounded), findsNothing);
     expect(find.byKey(const ValueKey('hg-adaptive-sheet')), findsOneWidget);
   });
+
+  testWidgets('login sheet shows an expired-session message', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(body: LoginSheet(initialMessage: '登录状态已失效，请重新登录')),
+      ),
+    );
+
+    expect(find.text('登录状态已失效，请重新登录'), findsOneWidget);
+    expect(find.text('登录黄果'), findsOneWidget);
+  });
 }

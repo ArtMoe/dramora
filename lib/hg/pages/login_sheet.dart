@@ -38,17 +38,19 @@ Future<T?> runAuthenticated<T>(
   }
 }
 
-Future<bool?> showLoginSheet(BuildContext context) {
+Future<bool?> showLoginSheet(BuildContext context, {String? message}) {
   return showHgAdaptiveSheetBuilder<bool>(
     context,
     childScrollable: true,
     barrierColor: Colors.black.withValues(alpha: 0.4),
-    builder: (_) => const LoginSheet(),
+    builder: (_) => LoginSheet(initialMessage: message),
   );
 }
 
 class LoginSheet extends StatefulWidget {
-  const LoginSheet({super.key});
+  const LoginSheet({super.key, this.initialMessage});
+
+  final String? initialMessage;
 
   @override
   State<LoginSheet> createState() => _LoginSheetState();
@@ -64,6 +66,12 @@ class _LoginSheetState extends State<LoginSheet> {
   bool _loading = false;
   bool _obscure = true;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _error = widget.initialMessage;
+  }
 
   @override
   void dispose() {

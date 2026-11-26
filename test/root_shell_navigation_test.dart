@@ -26,7 +26,7 @@ Widget _host({required int index, required ValueChanged<int> onSelected}) {
 }
 
 void main() {
-  testWidgets('bottom navigation moves its brand indicator with selection', (
+  testWidgets('bottom navigation highlight wraps both icon and label', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -38,20 +38,43 @@ void main() {
     await tester.pumpWidget(
       _host(index: 0, onSelected: (value) => selected = value),
     );
-    final first = tester.widget<AnimatedPositioned>(
-      find.byKey(const ValueKey('hg-nav-active-indicator')),
+    final firstSurface = tester.getRect(
+      find.byKey(const ValueKey('hg-nav-surface-0')),
     );
-    expect(first.left, isNotNull);
+    final firstLabel = tester.getRect(find.text('首页'));
+    expect(firstSurface.left, lessThanOrEqualTo(firstLabel.left));
+    expect(firstSurface.right, greaterThanOrEqualTo(firstLabel.right));
+    expect(firstSurface.top, lessThanOrEqualTo(firstLabel.top));
+    expect(firstSurface.bottom, greaterThanOrEqualTo(firstLabel.bottom));
+
+    final firstDecoration =
+        tester
+                .widget<AnimatedContainer>(
+                  find.byKey(const ValueKey('hg-nav-surface-0')),
+                )
+                .decoration
+            as BoxDecoration;
+    expect(firstDecoration.color, isNot(Colors.transparent));
 
     await tester.tap(find.byKey(const ValueKey('hg-nav-item-1')));
     expect(selected, 1);
 
     await tester.pumpWidget(_host(index: 1, onSelected: (_) {}));
     await tester.pump(const Duration(milliseconds: 250));
-    final second = tester.widget<AnimatedPositioned>(
-      find.byKey(const ValueKey('hg-nav-active-indicator')),
+    final secondDecoration =
+        tester
+                .widget<AnimatedContainer>(
+                  find.byKey(const ValueKey('hg-nav-surface-1')),
+                )
+                .decoration
+            as BoxDecoration;
+    expect(secondDecoration.color, isNot(Colors.transparent));
+    final secondSurface = tester.getRect(
+      find.byKey(const ValueKey('hg-nav-surface-1')),
     );
-    expect(second.left!, greaterThan(first.left!));
+    final secondLabel = tester.getRect(find.text('剧场'));
+    expect(secondSurface.contains(secondLabel.topLeft), isTrue);
+    expect(secondSurface.contains(secondLabel.bottomRight), isTrue);
     expect(tester.takeException(), isNull);
   });
 }

@@ -61,7 +61,12 @@ class _AuthServer {
     final directPath = segments.isEmpty
         ? ''
         : '/${segments.skip(hasSourcePrefix ? 1 : 0).join('/')}';
-    final apiPath = envelope?['path']?.toString() ?? directPath;
+    final directRequestPath = request.uri.hasQuery
+        ? '$directPath?${request.uri.query}'
+        : directPath;
+    final apiPath = directRequestPath.isNotEmpty
+        ? directRequestPath
+        : envelope?['path']?.toString() ?? '';
     final key = '$source:$apiPath';
     final call = (_calls[key] ?? 0) + 1;
     _calls[key] = call;
@@ -83,6 +88,62 @@ Map<String, dynamic> _me() => {
 };
 
 void main() {
+  test(
+    'authenticated requests use the upstream token query parameter',
+    () async {
+      final seenPaths = <String>[];
+      late _AuthServer endpoint;
+      endpoint = _AuthServer(
+        await HttpServer.bind(InternetAddress.loopbackIPv4, 0),
+        (source, path, call) {
+          seenPaths.add(path);
+          final uri = Uri.parse(path);
+          if (uri.path == '/api/account/me' &&
+              uri.queryParameters['token'] == 'query-token') {
+            return (statusCode: 200, body: _me());
+          }
+          if (uri.path == '/api/users/me/collects' &&
+              uri.queryParameters['token'] == 'query-token' &&
+              uri.queryParameters['page'] == '1' &&
+              uri.queryParameters['size'] == '20') {
+            return (
+              statusCode: 200,
+              body: {
+                'status': 1,
+                'data': {
+                  'items': <Map<String, dynamic>>[],
+                  'pagination': {'page': 1, 'pages': 0, 'total': 0},
+                },
+              },
+            );
+          }
+          if (uri.path == '/api/account/logout' &&
+              uri.queryParameters['token'] == 'query-token') {
+            return (statusCode: 200, body: {'status': 1, 'data': true});
+          }
+          return (statusCode: 401, body: _unauthorized());
+        },
+      );
+      addTearDown(endpoint.close);
+      final api = HgApi(
+        dio: Dio(),
+        sourceRouter: _TestRouter([endpoint.origin]),
+      )..token = 'query-token';
+
+      final user = await api.me();
+      final collects = await api.myCollects();
+      await api.logout();
+
+      expect(user.username, 'DearLicy');
+      expect(collects.items, isEmpty);
+      expect(seenPaths, [
+        '/api/account/me?token=query-token',
+        '/api/users/me/collects?page=1&size=20&token=query-token',
+        '/api/account/logout?token=query-token',
+      ]);
+    },
+  );
+
   test('a transient 401 does not clear a token that /me confirms', () async {
     late _AuthServer endpoint;
     endpoint = _AuthServer(
@@ -91,7 +152,7 @@ void main() {
         if (path.startsWith('/api/users/me/collects')) {
           return (statusCode: 401, body: _unauthorized());
         }
-        if (path == '/api/account/me') {
+        if (Uri.parse(path).path == '/api/account/me') {
           return (statusCode: 200, body: _me());
         }
         return (statusCode: 404, body: {'status': 0});
@@ -157,7 +218,7 @@ void main() {
               },
             );
           }
-          if (path == '/api/account/me') {
+          if (Uri.parse(path).path == '/api/account/me') {
             return (statusCode: 200, body: _me());
           }
           return (statusCode: 404, body: {'status': 0});
@@ -193,7 +254,7 @@ void main() {
           if (path.startsWith('/api/users/me/collects')) {
             return (statusCode: 401, body: _unauthorized());
           }
-          if (path == '/api/account/me') {
+          if (Uri.parse(path).path == '/api/account/me') {
             return source == 'a'
                 ? (statusCode: 401, body: _unauthorized())
                 : (statusCode: 200, body: _me());
@@ -236,7 +297,7 @@ void main() {
         if (path.startsWith('/api/users/me/collects')) {
           return (statusCode: 401, body: _unauthorized());
         }
-        if (path == '/api/account/me') {
+        if (Uri.parse(path).path == '/api/account/me') {
           return (statusCode: 401, body: _unauthorized());
         }
         return (statusCode: 404, body: {'status': 0});

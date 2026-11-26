@@ -1,17 +1,34 @@
 abstract final class HgAppMetadata {
-  static const String version = '1.4.35';
-  static const String buildNumber = '41';
-  static const String versionLabel = 'v1.4.35 (41)';
-  static const String releaseTitle = 'iOS 登录与后台媒体体验版';
+  static const String version = '1.4.36';
+  static const String buildNumber = '42';
+  static const String versionLabel = 'v1.4.36 (42)';
+  static const String releaseTitle = '登录持久化与导航细节优化版';
   static const List<String> releaseNotes = [
-    '登录 token 固定优先使用签发线路，并延后启动时重复校验，修复 iOS 登录后立即掉线。',
-    'iOS 通知栏“正在播放”现在同步标题、集数、实时进度、倍速和短剧封面。',
-    '灵动岛与锁屏实时活动改用原生 ActivityKit 数据传输，短剧封面不再依赖 App Group 文件。',
-    'iOS 缓存新增后台保活、通知附件封面、下载进度与灵动岛缓存进度；被系统强制结束后会在下次启动恢复。',
-    '下载页改为“下载中 / 已下载”双 Tab，可左右滑动切换；列表左滑显示删除，已下载卡片使用本地缓存封面。',
+    '登录鉴权已对齐黄果当前真实接口，修复 iOS 登录成功后立即掉线的问题。',
+    '登录 token、用户资料和签发数据源持久保存在设备，重启应用无需重复登录。',
+    '会话凭据失效时会自动清理旧登录状态，并直接提示“登录状态已失效，请重新登录”。',
+    '底部导航的选中高亮现在完整包裹图标和文字，选中层级更清晰。',
   ];
 
   static const List<HgReleaseRecord> releaseHistory = [
+    HgReleaseRecord(
+      version: 'v1.4.36',
+      buildNumber: '42',
+      date: '2026-11-26',
+      title: '登录持久化与导航细节优化版',
+      features: [
+        '登录 token、账号资料和签发数据源持久保存在设备，重启应用后继续使用原登录状态。',
+        '启动时检测到已失效的会话会清理本地旧凭据，并打开登录面板提示重新登录。',
+      ],
+      improvements: [
+        '登录鉴权改用黄果当前接口支持的 token 查询参数，收藏、历史、消息和资料请求使用同一套真实鉴权。',
+        '底部导航选中高亮改为完整胶囊，同时覆盖图标与文字。',
+      ],
+      fixes: [
+        '修复登录成功后立即退出登录、账号状态无法跨启动保留的问题。',
+        '修复已知失效凭据启动时仍显示登录状态的问题。',
+      ],
+    ),
     HgReleaseRecord(
       version: 'v1.4.35',
       buildNumber: '41',

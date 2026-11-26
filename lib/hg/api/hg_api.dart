@@ -1361,7 +1361,7 @@ class HgApi {
     };
     final isReadOnly = method.toUpperCase() == 'GET';
     final authenticated =
-        token != null && token!.isNotEmpty && !_isAccountEntryPath(path);
+        token != null && token!.isNotEmpty && !_isLoginOrRegistrationPath(path);
     final ranked = (_sourceRouter?.rankedSources ?? [baseUrl])
         .where((source) => source.isNotEmpty)
         .toList();
@@ -1405,7 +1405,7 @@ class HgApi {
         final tokenAtRequest = token;
         if (tokenAtRequest == null ||
             tokenAtRequest.isEmpty ||
-            _isAccountEntryPath(path)) {
+            _isLoginOrRegistrationPath(path)) {
           rethrow;
         }
         // A fallback edge can have a different session cookie/token state.
@@ -1445,7 +1445,7 @@ class HgApi {
   }) async {
     final normalized = normalizeHgBaseUrl(source);
     final method = asText(envelope['method'], fallback: 'GET').toUpperCase();
-    final path = asText(envelope['path']);
+    final path = _authenticatedPath(asText(envelope['path']));
     if (path.isEmpty) {
       throw const HgApiException('接口路径为空');
     }
@@ -1477,10 +1477,6 @@ class HgApi {
               if (!kIsWeb) 'Referer': '$normalized/',
               if (!kIsWeb) 'User-Agent': kHgUserAgent,
               if (body != null) 'Content-Type': 'application/json',
-              if (token != null &&
-                  token!.isNotEmpty &&
-                  (!kIsWeb || !_isPublicWebRead(method, path)))
-                'Authorization': 'Bearer $token',
             },
           ),
         );
@@ -1528,16 +1524,24 @@ class HgApi {
     throw HgApiException(message, statusCode: status);
   }
 
-  bool _isAccountEntryPath(String path) {
+  bool _isLoginOrRegistrationPath(String path) {
     return path.startsWith('/api/account/login') ||
-        path.startsWith('/api/account/register') ||
-        path.startsWith('/api/account/logout');
+        path.startsWith('/api/account/register');
   }
 
-  bool _isPublicWebRead(String method, String path) {
-    if (method != 'GET') return false;
-    return !path.startsWith('/api/account/') &&
-        !path.startsWith('/api/users/me/');
+  /// The upstream direct API authenticates account requests with a `token`
+  /// query parameter. Bearer headers are accepted by older edge deployments
+  /// but return 401 on the current source, including immediately after login.
+  String _authenticatedPath(String path) {
+    final activeToken = token?.trim() ?? '';
+    if (path.isEmpty ||
+        activeToken.isEmpty ||
+        _isLoginOrRegistrationPath(path) ||
+        RegExp(r'(?:[?&])token=').hasMatch(path)) {
+      return path;
+    }
+    final separator = path.contains('?') ? '&' : '?';
+    return '$path${separator}token=${Uri.encodeQueryComponent(activeToken)}';
   }
 
   Future<bool> _confirmSessionInvalid(String expectedToken) {

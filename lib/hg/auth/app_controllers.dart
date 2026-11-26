@@ -50,6 +50,13 @@ class AuthController extends ChangeNotifier with WidgetsBindingObserver {
   bool get isRestoring => _restoring;
   bool _restoring = false;
   Future<void>? _sessionExpiration;
+  bool _sessionExpiredNotice = false;
+
+  bool takeSessionExpiredNotice() {
+    if (!_sessionExpiredNotice) return false;
+    _sessionExpiredNotice = false;
+    return true;
+  }
 
   Map<String, int> get counts => _user?.counts ?? const {};
 
@@ -58,8 +65,7 @@ class AuthController extends ChangeNotifier with WidgetsBindingObserver {
     // A freshly issued token and a recently verified cached session should not
     // be immediately rejected by a transient edge response when the app
     // resumes. Authenticated actions still confirm the session on 401.
-    if (_user != null &&
-        (_sessionCheckedRecently() || !_prefs.containsKey(_sourceKey))) {
+    if (_user != null && _sessionCheckedRecently()) {
       return;
     }
     _restoring = true;
@@ -67,9 +73,14 @@ class AuthController extends ChangeNotifier with WidgetsBindingObserver {
     try {
       _applyUser(await _api.me());
       await _markSessionChecked();
-    } on HgLoginRequiredException {
+    } on HgLoginRequiredException catch (error) {
       // HgApi clears the session only after confirming the rejection across
       // sources. A single transient 401 must not force another login.
+      if (error.confirmed) {
+        await expireSession();
+        _sessionExpiredNotice = true;
+        notifyListeners();
+      }
     } catch (_) {
       // 离线启动时保留已缓存账号，不把用户强制退出。
     } finally {
@@ -228,6 +239,7 @@ class AuthController extends ChangeNotifier with WidgetsBindingObserver {
     if (pendingExpiration != null) await pendingExpiration;
     _token = token;
     _api.token = token;
+    _sessionExpiredNotice = false;
     await _prefs.setString(_tokenKey, token);
     final source = _api.authenticatedSource ?? _api.baseUrl;
     if (source.isNotEmpty) {

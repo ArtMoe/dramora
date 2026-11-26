@@ -23,6 +23,7 @@ import 'short_video_page.dart';
 import 'review_prompt.dart';
 import 'rank_page.dart';
 import 'settings_page.dart';
+import 'login_sheet.dart';
 import '../widgets/hg_adaptive_sheet.dart';
 import 'update_sheet.dart';
 import '../widgets/hg_pressable.dart';
@@ -57,6 +58,8 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
   int _index = 0;
   final Set<int> _visited = {0};
   bool _sourceSheetShown = false;
+  AuthController? _auth;
+  bool _sessionExpiredSheetScheduled = false;
 
   @override
   void initState() {
@@ -99,7 +102,29 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _auth?.removeListener(_handleAuthChanged);
     super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final auth = context.read<AuthController>();
+    if (identical(_auth, auth)) return;
+    _auth?.removeListener(_handleAuthChanged);
+    _auth = auth..addListener(_handleAuthChanged);
+    _handleAuthChanged();
+  }
+
+  void _handleAuthChanged() {
+    if (!mounted || !(_auth?.takeSessionExpiredNotice() ?? false)) return;
+    if (_sessionExpiredSheetScheduled) return;
+    _sessionExpiredSheetScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      _sessionExpiredSheetScheduled = false;
+      if (!mounted || (_auth?.isLoggedIn ?? false)) return;
+      await showLoginSheet(context, message: '登录状态已失效，请重新登录');
+    });
   }
 
   @override
@@ -368,88 +393,77 @@ class HgAppBottomBar extends StatelessWidget {
         top: false,
         child: SizedBox(
           height: 60,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final itemWidth = constraints.maxWidth / items.length;
-              return Stack(
-                children: [
-                  AnimatedPositioned(
-                    key: const ValueKey('hg-nav-active-indicator'),
-                    duration: const Duration(milliseconds: 220),
-                    curve: Curves.easeOutCubic,
-                    left: itemWidth * index + (itemWidth - 42) / 2,
-                    top: 5,
-                    width: 42,
-                    height: 29,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: HgColors.orange.withValues(
-                          alpha: dark ? 0.16 : 0.1,
+          child: Row(
+            children: List.generate(items.length, (itemIndex) {
+              final selected = itemIndex == index;
+              final item = items[itemIndex];
+              return Expanded(
+                child: Semantics(
+                  selected: selected,
+                  button: true,
+                  label: item.$3,
+                  child: HgPressable(
+                    key: ValueKey('hg-nav-item-$itemIndex'),
+                    onTap: () => onSelected(itemIndex),
+                    button: false,
+                    pressedOpacity: 0.72,
+                    child: Center(
+                      child: AnimatedContainer(
+                        key: ValueKey('hg-nav-surface-$itemIndex'),
+                        duration: const Duration(milliseconds: 220),
+                        curve: Curves.easeOutCubic,
+                        padding: const EdgeInsets.fromLTRB(10, 4, 10, 5),
+                        decoration: BoxDecoration(
+                          color: selected
+                              ? HgColors.orange.withValues(
+                                  alpha: dark ? 0.16 : 0.1,
+                                )
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(16),
                         ),
-                        borderRadius: BorderRadius.circular(14),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 180),
+                              switchInCurve: Curves.easeOutCubic,
+                              transitionBuilder: (child, animation) =>
+                                  FadeTransition(
+                                    opacity: animation,
+                                    child: child,
+                                  ),
+                              child: Icon(
+                                selected ? item.$2 : item.$1,
+                                key: ValueKey<bool>(selected),
+                                size: 22,
+                                color: selected ? HgColors.orange : muted,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            AnimatedDefaultTextStyle(
+                              duration: const Duration(milliseconds: 180),
+                              curve: Curves.easeOutCubic,
+                              style: TextStyle(
+                                fontSize: 10,
+                                height: 1,
+                                fontWeight: selected
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                                color: selected
+                                    ? theme.colorScheme.onSurface
+                                    : muted,
+                              ),
+                              child: Text(item.$3),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                  Positioned.fill(
-                    child: Row(
-                      children: List.generate(items.length, (itemIndex) {
-                        final selected = itemIndex == index;
-                        final item = items[itemIndex];
-                        return Expanded(
-                          child: Semantics(
-                            selected: selected,
-                            button: true,
-                            label: item.$3,
-                            child: HgPressable(
-                              key: ValueKey('hg-nav-item-$itemIndex'),
-                              onTap: () => onSelected(itemIndex),
-                              button: false,
-                              pressedOpacity: 0.72,
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  AnimatedSwitcher(
-                                    duration: const Duration(milliseconds: 180),
-                                    switchInCurve: Curves.easeOutCubic,
-                                    transitionBuilder: (child, animation) =>
-                                        FadeTransition(
-                                          opacity: animation,
-                                          child: child,
-                                        ),
-                                    child: Icon(
-                                      selected ? item.$2 : item.$1,
-                                      key: ValueKey<bool>(selected),
-                                      size: 22,
-                                      color: selected ? HgColors.orange : muted,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 3),
-                                  AnimatedDefaultTextStyle(
-                                    duration: const Duration(milliseconds: 180),
-                                    curve: Curves.easeOutCubic,
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      height: 1,
-                                      fontWeight: selected
-                                          ? FontWeight.w700
-                                          : FontWeight.w500,
-                                      color: selected
-                                          ? theme.colorScheme.onSurface
-                                          : muted,
-                                    ),
-                                    child: Text(item.$3),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                      }),
-                    ),
-                  ),
-                ],
+                ),
               );
-            },
+            }),
           ),
         ),
       ),
