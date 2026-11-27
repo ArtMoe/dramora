@@ -404,6 +404,13 @@ void main() {
       await tester.pumpWidget(host(const DownloadsPage(), manager: manager));
       await tester.tap(find.text('缓存回归测试'));
       await _frames(tester);
+      final detailPage = tester.widget<DramaDetailPage>(
+        find.byType(DramaDetailPage),
+      );
+      expect(detailPage.videoId, 1);
+      expect(detailPage.downloadTask?.videoId, 1);
+      await tester.tap(find.byKey(const ValueKey('hg-detail-play')));
+      await _frames(tester);
       final page = tester.widget<ShortVideoPage>(find.byType(ShortVideoPage));
       expect(page.initialEpisode, isNull);
       expect(platform.episodes[platform.active], 5);

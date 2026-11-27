@@ -8,7 +8,7 @@ import '../utils/hg_format.dart';
 import '../widgets/hg_components.dart';
 import '../widgets/hg_refresh_indicator.dart';
 import '../widgets/secure_cover.dart';
-import 'short_video_page.dart';
+import 'detail_page.dart';
 import '../widgets/hg_pressable.dart';
 
 class TopicsPage extends StatefulWidget {
@@ -418,12 +418,15 @@ class _TopicDetailPageState extends State<TopicDetailPage> {
   }
 
   void _openVideo(int index) {
+    if (index < 0 || index >= _videos.length) return;
+    final video = _videos[index];
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => ShortVideoPage(
-          videoIds: _videos.map((item) => item.id).toList(growable: false),
-          startIndex: index,
-          title: _topic?.title ?? widget.topic.title,
+        builder: (_) => DramaDetailPage(
+          videoId: video.id,
+          preloaded: video,
+          feedIds: _videos.map((item) => item.id).toList(growable: false),
+          feedIndex: index,
         ),
       ),
     );

@@ -20,10 +20,10 @@ import '../utils/hg_update_service.dart';
 import 'category_page.dart';
 import 'announcements_page.dart';
 import 'announcement_sheet.dart';
+import 'detail_page.dart';
 import 'home_page.dart';
 import 'posts_page.dart';
 import 'profile_page.dart';
-import 'short_video_page.dart';
 import 'review_prompt.dart';
 import 'rank_page.dart';
 import 'settings_page.dart';
@@ -87,7 +87,7 @@ class _RootShellState extends State<RootShell>
             if (id == null || !mounted) return;
             await Navigator.of(context).push(
               MaterialPageRoute<void>(
-                builder: (_) => ShortVideoPage(videoIds: [id]),
+                builder: (_) => DramaDetailPage(videoId: id),
               ),
             );
           },

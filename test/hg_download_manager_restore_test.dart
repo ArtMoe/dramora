@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:guomu/hg/api/hg_api.dart';
@@ -70,4 +71,75 @@ void main() {
       expect(manager.resumed, [10586]);
     },
   );
+
+  test(
+    'incomplete downloaded HLS playlists are not treated as playable',
+    () async {
+      final root = await Directory('.tmp').create(recursive: true);
+      final directory = await root.createTemp('download-integrity-');
+      final manifest = File('${directory.path}/index.m3u8');
+      await manifest.writeAsString('''#EXTM3U
+#EXTINF:2,
+seg_00000.ts
+#EXT-X-ENDLIST
+''');
+      addTearDown(() => directory.delete(recursive: true));
+      final task = HgDownloadTask(
+        videoId: 20001,
+        title: '缓存完整性测试',
+        cover: '',
+        totalEpisodes: 1,
+        state: '已缓存',
+        episodes: {
+          1: HgDownloadedEpisode(
+            number: 1,
+            directory: directory.path,
+            manifestPath: manifest.path,
+            bytes: 100,
+            updatedAt: '',
+          ),
+        },
+      );
+      SharedPreferences.setMockInitialValues({
+        'guomu.downloads.v1': jsonEncode([task.toJson()]),
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final manager = HgDownloadManager(_ResumeApi(), prefs);
+      addTearDown(manager.dispose);
+
+      expect(await manager.localPlaylist(20001, 1), isNull);
+    },
+  );
+
+  test('downloaded direct videos are playable without HLS parsing', () async {
+    final root = await Directory('.tmp').create(recursive: true);
+    final directory = await root.createTemp('download-direct-video-');
+    final video = File('${directory.path}/video.mp4');
+    await video.writeAsBytes(<int>[0, 1, 2, 3]);
+    addTearDown(() => directory.delete(recursive: true));
+    final task = HgDownloadTask(
+      videoId: 20002,
+      title: '直链缓存测试',
+      cover: '',
+      totalEpisodes: 1,
+      state: '已缓存',
+      episodes: {
+        1: HgDownloadedEpisode(
+          number: 1,
+          directory: directory.path,
+          manifestPath: video.path,
+          bytes: 4,
+          updatedAt: '',
+        ),
+      },
+    );
+    SharedPreferences.setMockInitialValues({
+      'guomu.downloads.v1': jsonEncode([task.toJson()]),
+    });
+    final prefs = await SharedPreferences.getInstance();
+    final manager = HgDownloadManager(_ResumeApi(), prefs);
+    addTearDown(manager.dispose);
+
+    expect(await manager.localPlaylist(20002, 1), video.path);
+  });
 }

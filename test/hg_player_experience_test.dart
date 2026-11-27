@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:guomu/hg/api/hg_api.dart';
 import 'package:guomu/hg/auth/app_controllers.dart';
 import 'package:guomu/hg/models/hg_models.dart';
+import 'package:guomu/hg/pages/detail_page.dart';
 import 'package:guomu/hg/pages/short_video_page.dart';
 import 'package:guomu/hg/services/hg_wake_lock_service.dart';
 import 'package:guomu/hg/theme/hg_theme.dart';
@@ -242,6 +243,28 @@ void main() {
     expect(find.text('0.75x'), findsOneWidget);
     expect(platform.speeds, contains(0.75));
   });
+
+  testWidgets(
+    'player title sits above a full-width episode bar and opens detail',
+    (tester) async {
+      await mount(tester);
+      final title = find.byKey(const ValueKey('hg-player-title-detail-1-1'));
+      final episodeBar = find.byKey(const ValueKey('hg-watch-all-bar-1-1'));
+      expect(title, findsOneWidget);
+      expect(episodeBar, findsOneWidget);
+      final titleRect = tester.getRect(title);
+      final barRect = tester.getRect(episodeBar);
+      expect(barRect.width, closeTo(390, 1));
+      expect(barRect.bottom, closeTo(844, 1));
+      expect(barRect.top - titleRect.bottom, lessThan(60));
+
+      await tester.tap(title);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.byType(DramaDetailPage), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('portrait controls auto-hide while playing and restore on tap', (
     tester,

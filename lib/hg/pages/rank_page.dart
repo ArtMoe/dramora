@@ -10,7 +10,7 @@ import '../utils/hg_format.dart';
 import '../widgets/hg_components.dart';
 import '../widgets/hg_refresh_indicator.dart';
 import '../widgets/secure_cover.dart';
-import 'short_video_page.dart';
+import 'detail_page.dart';
 import '../widgets/hg_pressable.dart';
 
 class RankPage extends StatefulWidget {
@@ -80,12 +80,25 @@ class _RankPageState extends State<RankPage> {
   void _open(int index, String kind) {
     final items = _cache[kind] ?? const <HgRankItem>[];
     if (items.isEmpty) return;
+    final item = items[index];
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => ShortVideoPage(
-          videoIds: items.map((item) => item.videoId).toList(growable: false),
-          startIndex: index,
-          title: tabs.firstWhere((item) => item.$1 == kind).$2,
+        builder: (_) => DramaDetailPage(
+          videoId: item.videoId,
+          preloaded: HgVideoCard(
+            id: item.videoId,
+            title: item.title,
+            cover: item.cover,
+            tags: item.tags,
+            score: item.score,
+            episodeCount: item.episodeCount,
+            isFinished: item.isFinished,
+            likeCount: item.likeCount,
+            collectCount: item.collectCount,
+            commentCount: item.commentCount,
+          ),
+          feedIds: items.map((entry) => entry.videoId).toList(growable: false),
+          feedIndex: index,
         ),
       ),
     );
