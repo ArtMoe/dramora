@@ -403,7 +403,10 @@ class _HomePageState extends State<HomePage> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
-        final columns = width >= 1000 ? 4 : 2;
+        final orientation = MediaQuery.orientationOf(context);
+        final columns = orientation == Orientation.landscape
+            ? (width >= 1000 ? 4 : 2)
+            : (width >= 600 ? 3 : 2);
         final horizontal = width >= 700 ? 28.0 : 16.0;
         final gap = width >= 700 ? 16.0 : 12.0;
         final effectiveWidth = width.clamp(0, 1200).toDouble();
