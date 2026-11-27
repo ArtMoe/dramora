@@ -130,7 +130,10 @@ class _CategoryPageState extends State<CategoryPage> {
       builder: (context, constraints) {
         final width = constraints.maxWidth;
         final horizontal = width >= 700 ? 30.0 : 16.0;
-        final columns = width >= 1000 ? 4 : 2;
+        final orientation = MediaQuery.orientationOf(context);
+        final columns = orientation == Orientation.landscape
+            ? (width >= 1000 ? 4 : 2)
+            : (width >= 600 ? 3 : 2);
         final gap = width >= 700 ? 16.0 : 12.0;
         final effectiveWidth = width.clamp(0, 1200).toDouble();
         final cellWidth =
