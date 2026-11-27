@@ -883,7 +883,10 @@ class _HgLoadingState extends State<HgLoading>
                 ),
               );
             }
-            final columns = width >= 1000 ? 4 : 2;
+            final orientation = MediaQuery.orientationOf(context);
+            final columns = orientation == Orientation.landscape
+                ? (width >= 1000 ? 4 : 2)
+                : (width >= 600 ? 3 : 2);
             return SingleChildScrollView(
               child: Padding(
                 padding: EdgeInsets.fromLTRB(
@@ -923,7 +926,7 @@ class _HgLoadingState extends State<HgLoading>
                         mainAxisSpacing: compact ? 14 : 18,
                         childAspectRatio: 0.68,
                       ),
-                      itemCount: columns == 2 ? 4 : 8,
+                      itemCount: columns * 2,
                       itemBuilder: (context, index) => _bone(
                         context,
                         progress: progress,
