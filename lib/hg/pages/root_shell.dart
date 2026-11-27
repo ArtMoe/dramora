@@ -373,7 +373,7 @@ class _RootShellState extends State<RootShell>
       },
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final wide = constraints.maxWidth >= 700;
+          final wide = kIsWeb && constraints.maxWidth >= 700;
           if (!wide) return _appShell();
           final dark = Theme.of(context).brightness == Brightness.dark;
           return ColoredBox(
