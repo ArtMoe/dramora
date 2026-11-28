@@ -240,7 +240,52 @@ class HgDownloadManager extends ChangeNotifier {
     final task = taskFor(videoId);
     final item = task?.episodes[episode];
     if (item == null) return null;
-    return await File(item.manifestPath).exists() ? item.manifestPath : null;
+    return await _isCompletePlaylist(item.manifestPath)
+        ? item.manifestPath
+        : null;
+  }
+
+  Future<bool> _isCompletePlaylist(String manifestPath) async {
+    final manifest = File(manifestPath);
+    if (!await manifest.exists()) return false;
+    final extension = manifestPath.toLowerCase().split('.').last;
+    if (extension == 'mp4' || extension == 'm4v' || extension == 'mov') {
+      return await manifest.length() > 0;
+    }
+    try {
+      final source = await manifest.readAsString();
+      if (!source.trimLeft().startsWith('#EXTM3U')) return false;
+      final directory = manifest.parent;
+      var segments = 0;
+      for (final rawLine in source.split('\n')) {
+        final line = rawLine.trim();
+        if (line.isEmpty) continue;
+        if (line.startsWith('#')) {
+          if (line.startsWith('#EXT-X-KEY') || line.startsWith('#EXT-X-MAP')) {
+            final match = RegExp(r'''URI="([^"]+)"''').firstMatch(line);
+            if (match != null &&
+                !await _localMediaExists(directory, match.group(1)!)) {
+              return false;
+            }
+          }
+          continue;
+        }
+        if (!await _localMediaExists(directory, line)) return false;
+        segments++;
+      }
+      return segments > 0;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> _localMediaExists(Directory directory, String value) async {
+    final uri = Uri.tryParse(value);
+    if (uri == null || uri.hasScheme || uri.pathSegments.length != 1) {
+      return false;
+    }
+    final file = File('${directory.path}/${uri.pathSegments.single}');
+    return await file.exists() && await file.length() > 0;
   }
 
   Future<int> sizeBytes() async {

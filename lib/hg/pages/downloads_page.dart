@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/hg_download_models.dart';
+import '../models/hg_models.dart';
 import '../theme/hg_theme.dart';
 import '../utils/hg_download_manager.dart';
 import '../utils/hg_format.dart';
 import '../widgets/hg_adaptive_sheet.dart';
 import '../widgets/hg_components.dart';
 import '../widgets/secure_cover.dart';
-import 'short_video_page.dart';
+import 'detail_page.dart';
 import '../widgets/hg_pressable.dart';
 
 class DownloadsPage extends StatelessWidget {
@@ -122,8 +123,21 @@ class _DownloadTaskList extends StatelessWidget {
             manager: manager,
             onOpen: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
-                builder: (_) =>
-                    ShortVideoPage(videoIds: [task.videoId], title: task.title),
+                builder: (_) => DramaDetailPage(
+                  videoId: task.videoId,
+                  preloaded: HgVideoCard(
+                    id: task.videoId,
+                    title: task.title,
+                    cover: task.localCover.isNotEmpty
+                        ? task.localCover
+                        : task.cover,
+                    description: '已缓存到本机，可离线观看。',
+                    tags: task.tags,
+                    episodeCount: task.episodes.length,
+                    totalEpisodes: task.totalEpisodes,
+                  ),
+                  downloadTask: task,
+                ),
               ),
             ),
           ),

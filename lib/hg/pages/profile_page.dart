@@ -12,9 +12,9 @@ import '../widgets/hg_pressable.dart';
 import '../widgets/hg_refresh_indicator.dart';
 import '../widgets/secure_cover.dart';
 import 'account_sheet.dart';
+import 'detail_page.dart';
 import 'login_sheet.dart';
 import 'settings_page.dart';
-import 'short_video_page.dart';
 import 'user_activity_pages.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -329,11 +329,15 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _openItem(HgPlaylistItem item) async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => ShortVideoPage(
-          videoIds: [item.dramaId],
-          initialEpisode: item.lastEpisode > 0 ? item.lastEpisode : 1,
-          initialPositionMs: item.positionMs,
-          title: item.title,
+        builder: (_) => DramaDetailPage(
+          videoId: item.dramaId,
+          preloaded: HgVideoCard(
+            id: item.dramaId,
+            title: item.title,
+            cover: item.cover,
+            totalEpisodes: item.totalEpisodes,
+            episodeCount: item.totalEpisodes,
+          ),
         ),
       ),
     );
@@ -1147,13 +1151,15 @@ class _LegacyLibraryPageState extends State<_LegacyLibraryPage> {
                       onTap: () async {
                         await Navigator.of(context).push(
                           MaterialPageRoute<void>(
-                            builder: (_) => ShortVideoPage(
-                              videoIds: [item.dramaId],
-                              initialEpisode: item.lastEpisode > 0
-                                  ? item.lastEpisode
-                                  : 1,
-                              initialPositionMs: item.positionMs,
-                              title: item.title,
+                            builder: (_) => DramaDetailPage(
+                              videoId: item.dramaId,
+                              preloaded: HgVideoCard(
+                                id: item.dramaId,
+                                title: item.title,
+                                cover: item.cover,
+                                totalEpisodes: item.totalEpisodes,
+                                episodeCount: item.totalEpisodes,
+                              ),
                             ),
                           ),
                         );

@@ -36,6 +36,11 @@
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>用于连接你手动添加的本地或局域网果幕数据源。</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>NSSupportsLiveActivitiesFrequentUpdates</key>

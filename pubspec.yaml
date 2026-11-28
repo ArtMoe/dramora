@@ -1,7 +1,7 @@
 name: guomu
 description: 果幕（Dramora） - 黄果短剧第三方 Flutter 客户端。
 publish_to: 'none'
-version: 1.4.38+44
+version: 1.4.39+45
 
 environment:
   sdk: ^3.9.0

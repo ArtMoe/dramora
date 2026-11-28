@@ -14,6 +14,7 @@ import '../theme/hg_theme.dart';
 import '../utils/hg_format.dart';
 import '../utils/hg_player_gestures.dart';
 import '../services/hg_live_activity_service.dart';
+import '../services/hg_local_media_server.dart';
 import '../services/hg_now_playing_service.dart';
 import '../services/hg_wake_lock_service.dart';
 import '../models/hg_download_models.dart';
@@ -28,6 +29,7 @@ import '../widgets/hg_player_seek_bar.dart';
 import '../widgets/hg_playback_feedback.dart';
 import '../widgets/secure_cover.dart';
 import 'comments_sheet.dart';
+import 'detail_page.dart';
 import 'episodes_sheet.dart';
 import 'login_sheet.dart';
 import '../widgets/hg_pressable.dart';
@@ -438,6 +440,29 @@ class _ShortVideoPageState extends State<ShortVideoPage>
     _pageController.jumpToPage(target);
   }
 
+  Future<void> _openCurrentDetail() async {
+    if (_entries.isEmpty) return;
+    final current = _entries[_currentPage];
+    final ids = <int>[];
+    for (final entry in _entries) {
+      if (!ids.contains(entry.detail.id)) ids.add(entry.detail.id);
+    }
+    final index = ids.indexOf(current.detail.id);
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => DramaDetailPage(
+          videoId: current.detail.id,
+          preloaded: current.detail.toCard(),
+          feedIds: ids,
+          feedIndex: index < 0 ? 0 : index,
+          downloadTask: context.read<HgDownloadManager>().taskFor(
+            current.detail.id,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final current = _entries.isEmpty ? null : _entries[_currentPage];
@@ -523,6 +548,7 @@ class _ShortVideoPageState extends State<ShortVideoPage>
                         onShowChrome: _showChrome,
                         onHideChrome: _cleanScreen,
                         onOpenEpisodes: _openEpisodesSheet,
+                        onOpenDetail: () => unawaited(_openCurrentDetail()),
                         onSpeedLockChanged: (value) {
                           if (mounted) setState(() => _speedLocked = value);
                         },
@@ -697,6 +723,7 @@ class _EpisodePlayer extends StatefulWidget {
     required this.onShowChrome,
     required this.onHideChrome,
     required this.onOpenEpisodes,
+    required this.onOpenDetail,
     required this.onSpeedLockChanged,
     required this.onProgress,
     required this.onPlaybackStateChanged,
@@ -716,6 +743,7 @@ class _EpisodePlayer extends StatefulWidget {
   final VoidCallback onShowChrome;
   final VoidCallback onHideChrome;
   final Future<void> Function() onOpenEpisodes;
+  final VoidCallback onOpenDetail;
   final ValueChanged<bool> onSpeedLockChanged;
   final void Function(Duration position, Duration duration) onProgress;
   final ValueChanged<bool> onPlaybackStateChanged;
@@ -757,6 +785,18 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
   Offset? _lastEdgeTapPosition;
   Timer? _edgeTapTimer;
   bool _suppressNextEdgeTap = false;
+  bool _skipLocalPlayback = false;
+
+  String get _watchAllLabel {
+    final total = widget.detail.totalEpisodes > 0
+        ? widget.detail.totalEpisodes
+        : widget.detail.episodeCount > 0
+        ? widget.detail.episodeCount
+        : widget.detail.episodes.length;
+    return total > 0
+        ? '全 $total 集 · 当前第 ${widget.episode.number} 集'
+        : '当前第 ${widget.episode.number} 集';
+  }
 
   @override
   void initState() {
@@ -1009,6 +1049,7 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
         controller.errorDescription ?? '视频源加载失败',
       );
       _recoveryPosition = controller.position;
+      _skipLocalPlayback = true;
       _controller = null;
       controller.removeListener(_handleControllerChanged);
       controller.dispose();
@@ -1118,30 +1159,44 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
       final downloads = context.read<HgDownloadManager>();
       final api = context.read<HgApi>();
       Object? lastError;
-      var allowNetworkRetry = true;
-      for (var attempt = 0; attempt < 2; attempt++) {
-        if (!mounted) return;
-        final localPath = await downloads.localPlaylist(
-          widget.detail.id,
-          widget.episode.number,
-        );
+      var useLocalPlayback = !_skipLocalPlayback;
+      String? localPlaybackUrl;
+      if (useLocalPlayback) {
+        try {
+          final localPath = await downloads.localPlaylist(
+            widget.detail.id,
+            widget.episode.number,
+          );
+          if (localPath != null) {
+            localPlaybackUrl = await HgLocalMediaServer.playlistUrl(localPath);
+          }
+        } catch (error) {
+          lastError = error;
+        }
+        useLocalPlayback = localPlaybackUrl?.isNotEmpty == true;
+        if (!useLocalPlayback) _skipLocalPlayback = true;
+      }
+
+      var networkAttempt = 0;
+      for (var attempt = 0; attempt < 3; attempt++) {
         if (!mounted) return;
         HgVideoController? controller;
         try {
-          final info = localPath == null
-              ? await api.playback(widget.detail.id, widget.episode.number)
-              : null;
+          final info = useLocalPlayback
+              ? null
+              : await api.playback(widget.detail.id, widget.episode.number);
           if (!mounted) return;
-          final mediaHeaders = <String, String>{
-            ...hgMediaHeaders(),
-            if (info != null && info.cdnAuthKey.isNotEmpty)
-              info.cdnAuthKey: info.cdnAuthValue,
-            if (info != null && info.cdnApp.isNotEmpty)
-              'x-cdn-app': info.cdnApp,
-          };
+          final mediaHeaders = useLocalPlayback
+              ? const <String, String>{}
+              : <String, String>{
+                  ...hgMediaHeaders(),
+                  if (info != null && info.cdnAuthKey.isNotEmpty)
+                    info.cdnAuthKey: info.cdnAuthValue,
+                  if (info != null && info.cdnApp.isNotEmpty)
+                    'x-cdn-app': info.cdnApp,
+                };
           controller = HgVideoController(
-            url: info?.videoUrl ?? 'file://${localPath ?? ''}',
-            localPath: localPath,
+            url: useLocalPlayback ? localPlaybackUrl! : info!.videoUrl,
             headers: mediaHeaders,
             onEnded: () {
               if (widget.active) {
@@ -1188,9 +1243,14 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
           }
           controller?.dispose();
           lastError = error;
-          final isNetworkSource = localPath == null;
-          if (attempt == 0 && allowNetworkRetry && isNetworkSource) {
-            allowNetworkRetry = false;
+          if (useLocalPlayback) {
+            _skipLocalPlayback = true;
+            useLocalPlayback = false;
+            await Future<void>.delayed(const Duration(milliseconds: 420));
+            continue;
+          }
+          networkAttempt++;
+          if (networkAttempt == 1) {
             await Future<void>.delayed(const Duration(milliseconds: 420));
             continue;
           }
@@ -1541,17 +1601,23 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: Text(
-                      '${widget.detail.title} · 第 ${widget.episode.number} 集',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        shadows: [
-                          Shadow(color: Colors.black54, blurRadius: 10),
-                        ],
+                    child: HgPressable(
+                      onTap: widget.onOpenDetail,
+                      haptic: true,
+                      pressedOpacity: 0.62,
+                      semanticLabel: '查看短剧详情',
+                      child: Text(
+                        '${widget.detail.title} · 第 ${widget.episode.number} 集',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          shadows: [
+                            Shadow(color: Colors.black54, blurRadius: 10),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -1806,40 +1872,6 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
                     child: Stack(
                       children: [
                         Positioned(
-                          left: 18,
-                          right: 76,
-                          bottom: 170,
-                          child: SafeArea(
-                            top: false,
-                            bottom: false,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  widget.detail.title,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 18,
-                                    height: 1.18,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: -0.3,
-                                  ),
-                                ),
-                                const SizedBox(height: 5),
-                                Text(
-                                  '第 ${widget.episode.number} 集 · ${widget.detail.episodeLabel}',
-                                  style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.65),
-                                    fontSize: 11,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        Positioned(
                           right: 8,
                           bottom: 170,
                           child: SafeArea(
@@ -1859,16 +1891,64 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
                           ),
                         ),
                         Positioned(
-                          left: 12,
-                          right: 12,
-                          bottom: 8,
-                          child: SafeArea(
-                            top: false,
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (_controller != null) ...[
-                                  AnimatedBuilder(
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  18,
+                                  0,
+                                  76,
+                                  5,
+                                ),
+                                child: HgPressable(
+                                  key: ValueKey(
+                                    'hg-player-title-detail-${widget.detail.id}-${widget.episode.number}',
+                                  ),
+                                  onTap: widget.onOpenDetail,
+                                  haptic: true,
+                                  pressedOpacity: 0.66,
+                                  semanticLabel: '查看短剧详情',
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          widget.detail.title,
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 18,
+                                            height: 1.18,
+                                            fontWeight: FontWeight.w800,
+                                            letterSpacing: -0.3,
+                                            shadows: _kPlayerLabelShadow,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Icon(
+                                        Icons.info_outline_rounded,
+                                        color: Colors.white.withValues(
+                                          alpha: 0.7,
+                                        ),
+                                        size: 17,
+                                        shadows: _kPlayerIconShadow,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              if (_controller != null)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                  ),
+                                  child: AnimatedBuilder(
                                     animation: _controller!,
                                     builder: (context, child) =>
                                         HgPlayerSeekBar(
@@ -1890,15 +1970,17 @@ class _EpisodePlayerState extends State<_EpisodePlayer> {
                                           onScrubEnd: _finishScrubbing,
                                         ),
                                   ),
-                                  const SizedBox(height: 7),
-                                ],
-                                _WatchAllBar(
-                                  label:
-                                      '全 ${widget.detail.totalEpisodes > 0 ? widget.detail.totalEpisodes : (widget.detail.episodeCount > 0 ? widget.detail.episodeCount : widget.detail.episodes.length)} 集 · 当前第 ${widget.episode.number} 集',
-                                  onTap: _openEpisodes,
                                 ),
-                              ],
-                            ),
+                              if (_controller != null)
+                                const SizedBox(height: 5),
+                              _WatchAllBar(
+                                key: ValueKey(
+                                  'hg-watch-all-bar-${widget.detail.id}-${widget.episode.number}',
+                                ),
+                                label: _watchAllLabel,
+                                onTap: _openEpisodes,
+                              ),
+                            ],
                           ),
                         ),
                       ],
@@ -2398,68 +2480,69 @@ class _ActionRail extends StatelessWidget {
 }
 
 class _WatchAllBar extends StatelessWidget {
-  const _WatchAllBar({required this.label, required this.onTap});
+  const _WatchAllBar({super.key, required this.label, required this.onTap});
 
   final String label;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 336),
-        child: HgPressable(
-          onTap: onTap,
-          haptic: true,
-          semanticLabel: '打开选集，$label',
-          pressedOpacity: 0.72,
-          child: Container(
-            height: 44,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.44),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.playlist_play_rounded,
-                  color: HgColors.orange,
-                  size: 19,
-                ),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: -0.1,
+    return HgPressable(
+      onTap: onTap,
+      haptic: true,
+      semanticLabel: '打开选集，$label',
+      pressedOpacity: 0.78,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.72),
+          border: Border(
+            top: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+          ),
+        ),
+        child: SafeArea(
+          top: false,
+          child: SizedBox(
+            height: 52,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(18, 0, 14, 0),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.playlist_play_rounded,
+                    color: HgColors.orange,
+                    size: 21,
+                  ),
+                  const SizedBox(width: 9),
+                  Expanded(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.1,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 9),
-                const Text(
-                  '选集',
-                  style: TextStyle(
-                    color: HgColors.orange,
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w700,
+                  const SizedBox(width: 10),
+                  const Text(
+                    '选集',
+                    style: TextStyle(
+                      color: HgColors.orange,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 2),
-                Icon(
-                  Icons.chevron_right_rounded,
-                  color: Colors.white.withValues(alpha: 0.72),
-                  size: 19,
-                ),
-              ],
+                  const SizedBox(width: 1),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: Colors.white.withValues(alpha: 0.72),
+                    size: 20,
+                  ),
+                ],
+              ),
             ),
           ),
         ),

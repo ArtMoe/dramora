@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../api/hg_api.dart';
 import '../app_flags.dart';
 import '../auth/app_controllers.dart';
+import '../models/hg_download_models.dart';
 import '../models/hg_models.dart';
 import '../theme/hg_theme.dart';
 import '../utils/hg_download_manager.dart';
@@ -35,6 +36,7 @@ class DramaDetailPage extends StatefulWidget {
     this.feedIds = const [],
     this.feedIndex = 0,
     this.heroTag,
+    this.downloadTask,
   });
 
   final int videoId;
@@ -42,6 +44,7 @@ class DramaDetailPage extends StatefulWidget {
   final List<int> feedIds;
   final int feedIndex;
   final Object? heroTag;
+  final HgDownloadTask? downloadTask;
 
   @override
   State<DramaDetailPage> createState() => _DramaDetailPageState();
@@ -66,6 +69,10 @@ class _DramaDetailPageState extends State<DramaDetailPage> {
       _loading = true;
       _error = null;
     });
+    final offlineTask = widget.downloadTask;
+    if (_detail == null && offlineTask != null) {
+      _detail = _offlineDetail(offlineTask);
+    }
     try {
       final detail = await context.read<HgApi>().video(widget.videoId);
       final history = await HgLocalHistory.find(widget.videoId);
@@ -76,10 +83,41 @@ class _DramaDetailPageState extends State<DramaDetailPage> {
         });
       }
     } catch (error) {
-      if (mounted) setState(() => _error = error);
+      if (mounted) {
+        if (offlineTask != null) {
+          setState(() {
+            _detail = _offlineDetail(offlineTask);
+            _error = null;
+          });
+        } else {
+          setState(() => _error = error);
+        }
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  HgVideoDetail _offlineDetail(HgDownloadTask task) {
+    final episodes = task.episodes.keys.toList()..sort();
+    return HgVideoDetail(
+      id: task.videoId,
+      title: task.title,
+      cover: task.localCover.isNotEmpty ? task.localCover : task.cover,
+      description: '已缓存到本机，可离线观看。',
+      tags: task.tags,
+      score: 0,
+      episodeCount: episodes.length,
+      totalEpisodes: task.totalEpisodes > 0
+          ? task.totalEpisodes
+          : episodes.length,
+      episodes: episodes
+          .map((number) => HgEpisode(number: number, title: '第 $number 集'))
+          .toList(growable: false),
+      author: null,
+      isFinished: false,
+      isOriginal: false,
+    );
   }
 
   Future<void> _play([int? episode]) async {

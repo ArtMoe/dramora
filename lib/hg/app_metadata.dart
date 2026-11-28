@@ -1,17 +1,38 @@
 abstract final class HgAppMetadata {
-  static const String version = '1.4.38';
-  static const String buildNumber = '44';
-  static const String versionLabel = 'v1.4.38 (44)';
-  static const String releaseTitle = '远程公告与 Dramora 品牌版';
+  static const String version = '1.4.39';
+  static const String buildNumber = '45';
+  static const String versionLabel = 'v1.4.39 (45)';
+  static const String releaseTitle = '缓存离线播放与播放页精修版';
   static const List<String> releaseNotes = [
-    '新增 GitHub 远程公告中心，可发布新版本、新项目、活动与维护通知。',
-    '公告支持“今日不再提醒”和“下次再通知我”，只有新公告才会再次提醒。',
-    '启动、回到前台和系统允许的后台任务会检查公告，并支持通知点击查看详情。',
-    '公告通过 GitHub API、jsDelivr 和 Raw 多级回退，并保留上次成功获取的记录。',
-    '项目英文品牌与仓库名统一为 Dramora，中文产品名继续使用果幕。',
+    '重做已缓存视频播放链路，HLS 分片与直链 MP4 均可离线播放、拖动和续播。',
+    '播放页重新整理标题、进度条与底部选集栏，移除重复的集数信息。',
+    '点击短剧卡片统一先进入详情页，播放页标题也可直接打开详情。',
+    '下载页可进入离线详情并手动播放缓存内容，缓存缺失时自动回退网络播放。',
   ];
 
   static const List<HgReleaseRecord> releaseHistory = [
+    HgReleaseRecord(
+      version: 'v1.4.39',
+      buildNumber: '45',
+      date: '2026-11-27',
+      title: '缓存离线播放与播放页精修版',
+      features: [
+        '已缓存 HLS 短剧通过本机回环媒体服务播放，支持分片读取、拖动进度、断网观看和原位置续播。',
+        '缓存直链 MP4 同样支持本机播放与 Range 请求，不再被误判为损坏的 HLS 文件。',
+        '下载页进入离线详情后可直接选择已缓存集数播放。',
+      ],
+      improvements: [
+        '播放页标题移近操作区，标题可直接进入短剧详情，底部选集栏改为贴底全宽的“全 X 集 · 当前第 X 集”。',
+        '移除播放器中部重复的集数与更新信息，减少标题、进度条和选集栏之间的空白。',
+        '榜单、专题、追剧、历史、下载页和深链统一先进入详情页，再由用户手动选择播放。',
+        'Android 与 iOS 增加本机回环媒体访问配置，缓存播放不再依赖短时网络播放地址。',
+      ],
+      fixes: [
+        '修复缓存播放提示“视频源加载失败，请检查网络后重试”的问题。',
+        '修复 HLS 分片缺失时缓存仍被标记为可播放的问题。',
+        '修复缓存播放不可用时会直接中断、不会自动回退网络播放的问题。',
+      ],
+    ),
     HgReleaseRecord(
       version: 'v1.4.38',
       buildNumber: '44',
